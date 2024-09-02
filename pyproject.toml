@@ -1,0 +1,21 @@
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "deltapd"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [ "typer", "dendropy",  "numpy", "matplotlib", "ete3"]
+
+
+
+[tool.maturin]
+python-source = "python"
+module-name = "deltapd.rs_deltapd"
+bindings = "pyo3"
