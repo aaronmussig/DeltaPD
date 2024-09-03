@@ -81,8 +81,12 @@ if __name__ == '__main__':
 scp /Users/aaron/phd/DeltaPDNew/data/bac120_ssu_reps_filtered.fna uqamussi@hurley.ace.uq.edu.au:/srv/home/uqamussi/projects/deltapd/queenie_kate
 
 conda activate sina-1.7.2
-
 sina --in=/srv/home/uqamussi/projects/deltapd/queenie_kate/bac120_ssu_reps_filtered.fna --out=/srv/home/uqamussi/projects/deltapd/queenie_kate/bac120_ssu_reps_filtered_sina.fna --fasta-write-dna --db=/srv/db/silva/138.1/SILVA_138.1_SSURef_NR99_12_06_20_opt.arb --turn
+
+
+sina --in=/tmp/am/bac_ssu.fna --out=/tmp/am/bac_ssu_sina.fna --fasta-write-dna --db=/srv/db/silva/138.1/SILVA_138.1_SSURef_NR99_12_06_20_opt.arb --turn
+
+sina --in=/tmp/am/arc_ssu.fna --out=/tmp/am/arc_ssu_sina.fna --fasta-write-dna --db=/srv/db/silva/138.1/SILVA_138.1_SSURef_NR99_12_06_20_opt.arb --turn
 
 zcp /srv/home/uqamussi/projects/deltapd/queenie_kate/bac120_ssu_reps_filtered_sina.fna .
 
@@ -93,8 +97,20 @@ scp /Users/aaron/phd/DeltaPDNew/data/bac120_ssu_reps_filtered_sina_trim_manual.f
 conda activate trimal-1.4.1
 trimal -in bac120_ssu_reps_filtered_sina_trim_manual.fna -out bac120_ssu_reps_filtered_sina_trim_trimal.fasta -keepheader -automated1
 
+trimal -in arc_ssu_sina_trim.fna -out arc_ssu_sina_trim_trimal.fasta -keepheader -automated1
+
+
 
 conda activate fasttree-2.1.11
 export OMP_NUM_THREADS=10
 /usr/bin/time -v FastTreeMP -nt -out bac120_tree.tree bac120_ssu_reps_filtered_sina_trim_manual.fna > foo.log
+
+
+
+conda activate fasttree-2.1.11
+export OMP_NUM_THREADS=40
+/usr/bin/time -v FastTreeMP -nt -out arc_ssu_sina_trim_min1200.tree arc_ssu_sina_trim_min1200.fna  > foo.log
+
+
+
 """

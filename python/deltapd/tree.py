@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Collection
 
 import dendropy
 
@@ -47,3 +48,6 @@ class Tree:
                 edges.add((parent_idx, child_idx, node.edge_length))
                 
         return tuple(taxa), tuple(edges)
+
+    def subset_to_taxa(self, taxa: Collection[str]):
+        return self.tree.extract_tree_with_taxa_labels(taxa)

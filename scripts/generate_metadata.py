@@ -15,22 +15,33 @@ def read_extra(path: Path):
             out[gid] = int(contig_len)
     return out
 
+def read_metadata(path):
+    out = dict()
+    with path.open() as f:
+        header = f.readline().strip().split('\t')
+        rep_col = header.index('gtdb_genome_representative')
+        for line in f.readlines():
+            data = line.strip().split('\t')
+            gid = data[0]
+            rep = data[rep_col]
+            out[gid] = rep
+    return out
+
 
 def main():
-    path_ref = Path('/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/ar53_r220.tree')
-    path_qry = Path('/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/non_bs.tree')
-    path_out = Path('/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/ar53_non_bs_metadata.tsv')
+    path_ref = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53.tree')
+    path_meta = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/ar53_metadata_r220.tsv')
+    path_qry = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min1200.tree')
+    path_out = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min1200_metadata.tsv')
 
-    path_extra = Path('/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/metadata.tsv')
-
-    extra = read_extra(path_extra)
-    ref_taxa = get_taxa_from_tree(path_ref)
+    d_gid_to_rep = read_metadata(path_meta)
     qry_taxa = get_taxa_from_tree(path_qry)
 
     lines = [('sequence_id', 'genome_id', 'contig_length')]
     for taxon in sorted(qry_taxa):
-        contig_len = extra[taxon]
-        lines.append((taxon, taxon, contig_len))
+        contig_len = 1234
+        rep_gid = d_gid_to_rep[taxon.split('__')[0]]
+        lines.append((taxon, rep_gid, contig_len))
 
     with path_out.open('w') as f:
         for line in lines:

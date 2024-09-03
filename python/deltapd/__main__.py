@@ -1,19 +1,28 @@
+import time
 from collections import defaultdict
 from pathlib import Path
 
-import typer
-from deltapd import file_md5, PyDeltaPD, PyDistMatrix, PyParams, PyLinearModelCorr, PyLinearModelError, PyLinearModelType
-from deltapd.tree import Tree as DPDTree
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
-import time
-
 import numpy as np
-from ete3 import Tree, TreeStyle
+import typer
+from ete3 import Tree, faces, TreeStyle
+
+from deltapd import PyDeltaPD, PyDistMatrix, PyParams, PyLinearModelCorr, PyLinearModelError, \
+    PyLinearModelType
+from deltapd.tree import Tree as DPDTree
 
 app = typer.Typer()
 
+
+
+GIDS_TO_PLOT = {
+    'GB_GCA_030751995.1',
+}
+
 def log(msg: str):
     print(f'{time.ctime()}: {msg}')
+
 
 def read_meta(path: Path):
     print('Update the read meta to be consistent')
@@ -28,22 +37,44 @@ def read_meta(path: Path):
             # out[gid] = (sid, int(contig_len))
     return out
 
+
+def read_taxonomy(path: Path):
+    out = dict()
+    with path.open() as f:
+        for line in f.readlines():
+            gid, tax = line.strip().split('\t')
+            out[gid] = tax.split(';')
+    return out
+
+
 @app.command()
 def run(name: str):
-
     # path_ref = Path('/Users/aaron/phd/DeltaPD/examples/reference.tree')
     # path_qry = Path('/Users/aaron/phd/DeltaPD/examples/query.tree')
     # path_meta = Path('/Users/aaron/phd/DeltaPDNew/example/metadata.tsv')
 
-
-    # Temp
     path_ref = Path('/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/ar53_r220.tree')
     path_qry = Path('/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/non_bs.tree')
     path_meta = Path('/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/ar53_non_bs_metadata.tsv')
+    path_tax = Path('/Users/aaron/phd/DeltaPDNew/example/ar53_taxonomy.tsv')
 
-    ref_dm_path = Path('/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/ar53_r220.dm')
-    qry_dm_path = Path('/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/non_bs.dm')
+    # Temp
+    # path_ref = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53.tree')
+    # path_qry = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min1200.tree')
+    # path_meta = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min1200_metadata.tsv')
+    # path_tax = Path('/Users/aaron/phd/DeltaPDNew/example/ar53_taxonomy.tsv')
 
+    # ref_dm_path = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53.dm')
+    # qry_dm_path = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min1200.dm')
+
+    d_taxonomy = read_taxonomy(path_tax)
+
+    # path_ref = Path('/Users/aaron/phd/DeltaPDNew/example/reference.tree')
+    # path_qry = Path('/Users/aaron/phd/DeltaPDNew/example/query.tree')
+    # path_meta = Path('/Users/aaron/phd/DeltaPDNew/example/metadata.tsv')
+    #
+    ref_dm_path = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53_ref.dm')
+    qry_dm_path = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53_qry.dm')
 
     # ROOT_DIR = Path('/Users/aaron/phd/DeltaPDNew/data')
     # # ROOT_DIR = Path('/srv/home/uqamussi/projects/deltapd/code/data')
@@ -65,7 +96,7 @@ def run(name: str):
     ref_nodes = ref.get_nodes_and_edges_for_deltapd()
     log('REF: Creating reference DM')
     ref_dm = PyDistMatrix(ref_nodes[0], ref_nodes[1])
-    ref_dm.to_file(str(ref_dm_path.absolute()))
+    # ref_dm.to_file(str(ref_dm_path.absolute()))
 
     log('QRY: Getting nodes and edges for query')
     qry = DPDTree(path_qry)
@@ -73,25 +104,30 @@ def run(name: str):
     log('QRY: Found query nodes')
     qry_dm = PyDistMatrix(qry_nodes[0], qry_nodes[1])
     log('QRY: Creating query DM')
-    qry_dm.to_file(str(qry_dm_path.absolute()))
+    # qry_dm.to_file(str(qry_dm_path.absolute()))
 
     log('Creating the DeltaPD object')
     # path_meta = ROOT_DIR / 'bac120_ssu_reps_metadata_rs.tsv'
     dpd = PyDeltaPD(qry_dm, ref_dm, str(path_meta.absolute()), '\t')
 
-    log('Running DeltaPD')
-    params = PyParams(50, 1, PyLinearModelType.RepeatedMedian, PyLinearModelError.RMSE, PyLinearModelCorr.Pearson)
+    """
+    Instead of taking the KNN, take the x closest points until the total branch distance is > some value
+    maybe 10% of the total sum of branch lengths?
+    """
+
+    log('Running DeltaPD') # there's an error where 0 can be all of the kNN distances # sample more??
+    params = PyParams(100, 10, PyLinearModelType.TheilSen, PyLinearModelError.RMSE, PyLinearModelCorr.Pearson)
 
     log("getting results")
     results = dpd.run(params)
 
-    log('creating plots')
-    # load_as_ete3(path_ref, path_qry)
-    create_embedded_plots(results)
-
     log('writing results')
-    write_results(results, d_meta)
+    agg_results, agg_xy = write_results(results, d_meta)
+    create_agg_plots(agg_results, agg_xy)
 
+    log('creating plots')
+    # load_as_ete3(qry, results, agg_results, d_taxonomy)
+    create_embedded_plots(results)
 
     """
     The goal for today is to get the output data from DeltaPD correctly.
@@ -106,6 +142,8 @@ def run(name: str):
     as it would then sort of ensure that poor parts of the query tree (i.e. neighbours are all on long 
     branches) are not influencing the model.
     
+    Not quite, this doesn't work for the case of multiple genes in the query tree.
+    
     Output data:
     
         - 
@@ -119,17 +157,92 @@ def run(name: str):
              - Taxon removed
              - Std error, relative influence
              
+    There is an idea of neighbourhood stability that I would like to explore. I.e. for a knn set
+    what is the overall outlier / relative proportion.
     
     """
 
     return
 
-def create_embedded_plots(results):
 
-    fig, ax = plt.subplots()
+def create_agg_plots(agg_results, agg_xy):
+
+    """
+    These plots are good as they show the points that only contain those for the query taxon.
+    It does fall apart a bit when you look at ones that are on long branches, as they are very rarely ever
+    the nearest neighbour.
+
+    Poor linearity for these models does seem to indicate contamination.
+    """
+
+    for qry_taxon, qry_inf in sorted(agg_results.items()):
+        #
+        # if qry_taxon not in {'GB_GCA_030751995.1', 'GB_GCA_003164295.1', 'GB_GCA_021852135.1', 'GB_GCA_014874415.1', 'GB_GCA_014729945.1', 'GB_GCA_018659375.1', 'GB_GCA_014728835.1', 'GB_GCA_026014615.1', 'GB_GCA_002508315.1', 'GB_GCA_016839385.1', 'GB_GCA_003096255.1', 'GB_GCA_018815265.1', 'GB_GCA_018609935.1', 'GB_GCA_900318035.1', 'GB_GCA_027016915.1', 'GB_GCA_018304285.1', 'GB_GCA_016202745.1', 'GB_GCA_023254445.1', 'RS_GCF_023256325.1'}:
+        #     continue
+
+        if qry_taxon not in GIDS_TO_PLOT:
+            continue
+
+        cur_xy = agg_xy[qry_taxon]
+        cur_x = [x[0] for x in cur_xy]
+        cur_y = [x[1] for x in cur_xy]
+
+        cmap = cm.get_cmap('viridis')
+        norm = plt.Normalize(vmin=0, vmax=1)
+        colors = cmap(norm(qry_inf))
+
+        fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2)
+        ax1.scatter(cur_x, cur_y, c=colors)
+        ax1.set_title(f'KNN for: {qry_taxon}')
+
+        ax2.hist(qry_inf)
+
+        plt.show()
+        # plt.savefig('/tmp/am/embedded.png')
+        # plt.close()
+        print()
+
+
 
     return
 
+
+def create_embedded_plots(results):
+    for result in sorted(results, key=lambda x: x.query_taxon):
+
+        if result.query_taxon not in GIDS_TO_PLOT:
+            continue
+
+
+        fig, ax = plt.subplots()
+
+        x_data = result.knn_as_linalg.ref_data
+        y_data = result.knn_as_linalg.qry_data
+
+        # Colour each point by the proportion of standard error
+        std_error = result.std_error
+        cmap = cm.get_cmap('viridis')
+        norm = plt.Normalize(vmin=0, vmax=1)
+        colors = cmap(norm(std_error))
+
+        ax.scatter(x_data, y_data, c=colors)
+
+        # title
+        ax.set_title(f'KNN for: {result.query_taxon}')
+
+        # Add the line of best fit for the base model
+        base_grad = result.linear_model_base.params.gradient
+        base_int = result.linear_model_base.params.intercept
+        lobf_y = [base_grad * x + base_int for x in x_data]
+        ax.plot(x_data, lobf_y, color='red', label='Base Model')
+
+        plt.show()
+        # plt.savefig('/tmp/am/embedded.png')
+        # plt.close()
+
+        print('next.')
+
+    return
 
 
 def load_tree_as_ete3(path_tree):
@@ -138,50 +251,103 @@ def load_tree_as_ete3(path_tree):
     t = Tree(content, format=1, quoted_node_names=True)
     return t
 
-def load_as_ete3(path_ref_tree, path_qry_tree):
-    # ref_tree = load_tree_as_ete3(path_ref_tree)
-    t = load_tree_as_ete3(path_qry_tree)
 
-    ts = TreeStyle()
-    ts.show_leaf_name = True
+def annotate_with_taxonomy(tree, d_taxonomy):
+    # Add the taxonomy to the tree
+    for leaf_node in tree.iter_leaves():
+        cur_node = leaf_node.up
+        while cur_node:
+            descendants = [x.name for x in cur_node.get_descendants()]
 
-    t.show(tree_style=ts)
+            desc_tax = [d_taxonomy[x] for x in descendants]
+
+            cur_node = cur_node.up
+            print()
+
+    return
+
+
+def generate_data_for_export(qry: DPDTree, results, agg_results, d_taxonomy):
+    # For each query taxon we want to find the maximal set of other query nodes that it will appear in
+
+    return
+
+
+def load_as_ete3(qry: DPDTree, results, agg_results, d_taxonomy):
+    # Simple test, I want to know how many times each query taxon appears in a different knn set
+    d_taxon_to_set = defaultdict(set)
+    for result in results:
+        for qry_gid in result.knn_as_linalg.qry_labels:
+            d_taxon_to_set[qry_gid].update(result.knn_as_linalg.qry_labels)
+    print()
+
+    # So we can expect at minimum a given taxon to appear in knn sets with itself (e.g. 50).
+    # The maximum varies a lot, for example ar53 gives 682 for the maximum. but drops sharply to 200
+
+    def ete3_layout_fn(node):
+        if node.is_leaf():
+            data = agg_results[node.name]
+            data_avg = np.mean(data)
+            data_std = np.std(data)
+            data_txt = f'{data_avg:.4f}+/-{data_std:.4f} {d_taxonomy[node.name]}'
+            anno = faces.TextFace(data_txt, fsize=10)
+            faces.add_face_to_node(anno, node, column=0)
+
+    for result in sorted(results, key=lambda x: x.query_taxon):
+        print(f'Query taxon: {result.query_taxon}')
+
+        # Load the knn for the query taxon
+        qry_labels = result.knn_as_linalg.qry_labels
+
+        # Subset the dendropy tree to these nodes
+        subtree = qry.subset_to_taxa(qry_labels)
+
+        # Load it as an ete3 tree
+
+        t = Tree(subtree.as_string(schema='newick'), format=1, quoted_node_names=True)
+        ts = TreeStyle()
+        ts.show_leaf_name = True
+
+        # x = annotate_with_taxonomy(t, d_taxonomy)
+
+        ts.layout_fn = ete3_layout_fn
+
+        t.show(tree_style=ts)
+
+        print()
+
+    # t = load_tree_as_ete3(path_qry_tree)
+    #
+    # ts = TreeStyle()
+    # ts.show_leaf_name = True
+    #
+    # t.show(tree_style=ts)
 
     return
 
 
 def write_results(results, d_meta):
-
     # fig, ax = plt.subplots()
 
     # From the results we want to get the relative influence of each point
     d_taxon_relative_inf = defaultdict(list)
-
+    d_taxon_data_points = defaultdict(list)
+    # Get the relative influence of each point in the models that were created
 
     # Create plots of the points and the line of best fit
     for result in results:
         # taxon_removed = result.taxon_removed
-
-        # qry_data = result.knn_as_linalg.qry_data
         qry_labels = result.knn_as_linalg.qry_labels
-        # ref_data = result.knn_as_linalg.ref_data
-        # ref_labels = result.knn_as_linalg.ref_labels
-        #
-        # base_corr = result.linear_model_base.eval.corr
-        # base_err = result.linear_model_base.eval.error
-        #
-        # base_grad = result.linear_model_base.params.gradient
-        # base_int = result.linear_model_base.params.intercept
-
-        # for cur_ref, cur_qry, cur_jk in zip(ref_labels, qry_labels, result.linear_model_jk):
-        #     print()
-
-        relative_inf = result.relative_influence
+        qry_data = result.knn_as_linalg.qry_data
+        ref_labels = result.knn_as_linalg.ref_labels
+        ref_data = result.knn_as_linalg.ref_data
+        # relative_inf = result.relative_influence
         std_err = result.std_error
 
-        for cur_qry, cur_inf in zip(qry_labels, std_err):
+        for cur_qry, cur_ref, cur_qry_data, cur_ref_data, cur_inf in zip(qry_labels, ref_labels, qry_data, ref_data,
+                                                                         std_err):
             d_taxon_relative_inf[cur_qry].append(cur_inf)
-
+            d_taxon_data_points[cur_qry].append((cur_ref_data, cur_qry_data))
     d_results = dict()
 
     for cur_taxon, cur_vec in sorted(d_taxon_relative_inf.items()):
@@ -199,8 +365,7 @@ def write_results(results, d_meta):
 
     # plt.show()
 
-    return
-
+    return d_taxon_relative_inf, d_taxon_data_points
 
 
 @app.command()

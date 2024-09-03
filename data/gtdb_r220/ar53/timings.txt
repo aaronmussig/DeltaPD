@@ -1,0 +1,5 @@
+
+arc_ssu_sina_trim_min1200 @ 10 threads = 3 min @ 259936 kb
+
+
+

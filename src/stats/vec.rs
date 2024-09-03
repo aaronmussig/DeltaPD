@@ -1,6 +1,7 @@
 /// Calculate the median value of a vector.
 /// // TODO: Can make this mutable for a bit more performance gain
 pub fn calc_median(x: &[f64]) -> f64 {
+
     let mut sorted = x.to_vec();
     sorted.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 

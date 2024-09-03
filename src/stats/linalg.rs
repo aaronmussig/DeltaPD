@@ -77,6 +77,7 @@ fn test_repeated_median() {
     assert_eq!(round_f64(results.intercept, 5), -0.34246);
 }
 
+
 /// Calculate the coefficient of determination
 pub fn calc_r2(y: &[f64], y_hat: &[f64]) -> f64 {
     assert_eq!(y.len(), y_hat.len(), "R2 requires equal length vectors.");

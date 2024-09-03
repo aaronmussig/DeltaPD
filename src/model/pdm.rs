@@ -131,6 +131,8 @@ impl PyDistMatrix {
             pdm.add_edge(parent_node_id, child_node_id, Edge(length));
         }
 
+        println!("Total sum of all branch lengths: {:?}", pdm.length());
+
         let (dm_taxa, dm) = pdm.matrix(true).unwrap();
         let dm = DistMatrix::new(dm_taxa, dm);
         Self { dm }

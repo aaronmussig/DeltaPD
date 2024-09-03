@@ -1,7 +1,6 @@
 import re
-from collections import defaultdict
-import numpy as np
 
+import numpy as np
 from tqdm import tqdm
 
 
@@ -31,15 +30,15 @@ def get_hits(path):
     return headers, array
 
 
-
-
-
 def main():
     max_prop_gaps_in_column = 0.75
     max_prop_gaps_in_sequence = 0.75
 
-    input_path = f'/Users/aaron/phd/DeltaPDNew/data/bac120_ssu_reps_filtered_sina.fna'
-    output_path = f'/Users/aaron/phd/DeltaPDNew/data/bac120_ssu_reps_filtered_sina_trim_manual.fna'
+    input_path = f'/tmp/am/bac_ssu_sina.fna'
+    output_path = f'/tmp/am/bac_ssu_sina_trim.fna'
+
+    # input_path = f'/Users/aaron/phd/DeltaPDNew/data/bac120_ssu_reps_filtered_sina.fna'
+    # output_path = f'/Users/aaron/phd/DeltaPDNew/data/bac120_ssu_reps_filtered_sina_trim_manual.fna'
 
     # Read the MSA
     print('Reading MSA')
@@ -60,7 +59,7 @@ def main():
         res_in_col = all_values_in_col - {'-', 'N'}
         prop_gaps_in_column = d_value_to_prop.get('-', 0) + d_value_to_prop.get('N', 0)
 
-        # Exclude columns that have one or fewer residues
+        # Exclude columns that have one residue
         if len(res_in_col) <= 1:
             continue
 
@@ -90,7 +89,6 @@ def main():
 
         # Otherwise, keep it
         seqs_to_keep.append(seq_idx)
-
 
     print('Writing the output')
     n_excluded = 0

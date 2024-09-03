@@ -18,6 +18,7 @@ pub fn find_common_ids_in_pdms<'a>(
     q_taxa: &'a [Taxon],
     metadata_file: &MetadataFile,
 ) -> DeltaPDResult<CommonTaxa<'a>> {
+
     // Create a hashmap to get the pointer to the reference taxon
     let ref_taxa_map = {
         let mut out = HashMap::new();
