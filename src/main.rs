@@ -12,8 +12,8 @@ fn main() {
 
     // Ref total sum: 1235.005060000002
     // Qry total sum: 132.6799049183003
-    let ref_path = PathBuf::from("/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53_ref.dm");
-    let qry_path = PathBuf::from("/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53_qry.dm");
+    let ref_path = PathBuf::from("/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/ar53_r220.dm");
+    let qry_path = PathBuf::from("/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/non_bs.dm");
     let meta_path = PathBuf::from("/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/ar53_non_bs_metadata.tsv");
 
     // let ref_path = PathBuf::from("/Users/aaron/phd/DeltaPDNew/example/reference.dm");
@@ -23,6 +23,7 @@ fn main() {
     // let ref_path = PathBuf::from("/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53.dm");
     // let qry_path = PathBuf::from("/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min1200.dm");
     // let meta_path = PathBuf::from("/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min1200_metadata.tsv");
+
 
     println!("Loading query matrix...");
     let qry_matrix = DistMatrix::from_path(&qry_path).unwrap();
@@ -40,7 +41,7 @@ fn main() {
     );
 
 
-    let params = Params::new(100, 1, LinearModelType::TheilSen, LinearModelError::RMSE, LinearModelCorr::R2);
+    let params = Params::new(30, 10, LinearModelType::RepeatedMedian, LinearModelError::RMSE, LinearModelCorr::R2);
 
     let _x = run_deltapd(&deltapd.qry_dm, &deltapd.ref_dm, &deltapd.metadata, &params).unwrap();
 

@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
 use std::str::FromStr;
-
+use std::fs;
+use std::io::{self, BufRead};
+use std::time::Instant;
 use csv::Writer;
 use ndarray::Array2;
 use phylodm::PDM;
@@ -57,29 +59,88 @@ impl DistMatrix {
 
         // Read the file
         let file = File::open(path).map_err(DeltaPDError::IoError)?;
-        let mut reader = csv::Reader::from_reader(file);
+        let reader = io::BufReader::new(file);
 
-        // Parse the header line
-        let taxa: Vec<Taxon> = reader.headers().map_err(DeltaPDError::CsvError)?
-            .iter()
-            .skip(1)
-            .map(|name| Taxon(name.to_string()))
-            .collect();
+        let mut seen_taxa = false;
+        let mut seen_edges = false;
 
-        // Create the distance matrix
-        let mut matrix = Array2::zeros((taxa.len(), taxa.len()));
-        for (i, result) in reader.records().enumerate() {
-            let records = result.map_err(DeltaPDError::CsvError)?;
-            for (j, record) in records.iter().enumerate() {
-                // The first j is the taxon name again
-                if j > 0 {
-                    let value = f64::from_str(record).map_err(DeltaPDError::ParseFloatError)?;
-                    matrix[[i, j - 1]] = value;
-                    matrix[[j - 1, i]] = value;
+        let mut file_taxa: HashMap<Taxon, usize> = HashMap::new();
+        let mut file_edges: Vec<(usize, usize, f64)> = Vec::new();
+
+        for line in reader.lines() {
+            let line = line.map_err(DeltaPDError::IoError)?;
+
+            // Check what section we are up to
+            if line.starts_with("#TAXA") {
+                seen_taxa = true;
+                continue;
+            } else if line.starts_with("#EDGES") {
+                seen_edges = true;
+                continue;
+            } else {
+                if seen_edges {
+                    // We are adding the edges
+                    let parts = line.split('\t').collect::<Vec<&str>>();
+                    if parts.len() != 3 {
+                        return Err(DeltaPDError::Error("Invalid number of columns in the edges section".to_string()));
+                    }
+                    let parent = usize::from_str(parts[0]).map_err(DeltaPDError::ParseIntError)?;
+                    let child = usize::from_str(parts[1]).map_err(DeltaPDError::ParseIntError)?;
+                    let length = f64::from_str(parts[2]).map_err(DeltaPDError::ParseFloatError)?;
+                    file_edges.push((parent, child, length));
+                } else if seen_taxa {
+                    // We are adding the taxa
+                    let parts = line.split('\t').collect::<Vec<&str>>();
+                    if parts.len() != 2 {
+                        return Err(DeltaPDError::Error("Invalid number of columns in the taxa section".to_string()));
+                    }
+                    let taxon = Taxon(parts[0].to_string());
+                    let idx = usize::from_str(parts[1]).map_err(DeltaPDError::ParseIntError)?;
+                    file_taxa.insert(taxon, idx);
+                } else {
+                    // This is an error as neither section has been found
+                    return Err(DeltaPDError::Error("No section found in the file".to_string()));
                 }
             }
         }
 
+        // Create the PhyloDM object
+        let mut pdm = PDM::default();
+
+        // Record the old index to new index mapping
+        let mut old_id_to_new_id: HashMap<usize, NodeId> = HashMap::with_capacity(file_edges.len());
+
+        // Add the taxa
+        for (taxon, idx) in file_taxa {
+            let new_id = pdm.add_node(Some(&taxon)).unwrap();
+            old_id_to_new_id.insert(idx, new_id);
+        }
+
+        // Add the edges
+        for (parent_id, child_id, length) in file_edges {
+            let parent_node_id = match old_id_to_new_id.get(&parent_id) {
+                Some(id) => *id,
+                None => {
+                    let new_id = pdm.add_node(None).unwrap();
+                    old_id_to_new_id.insert(parent_id, new_id);
+                    new_id
+                }
+            };
+            let child_node_id = match old_id_to_new_id.get(&child_id) {
+                Some(id) => *id,
+                None => {
+                    let new_id = pdm.add_node(None).unwrap();
+                    old_id_to_new_id.insert(child_id, new_id);
+                    new_id
+                }
+            };
+            pdm.add_edge(parent_node_id, child_node_id, Edge(length));
+        }
+
+        println!("Total sum of all branch lengths: {:?}", pdm.length());
+        let previous_time = Instant::now();
+        let (taxa, matrix) = pdm.matrix(true).unwrap();
+        println!("Time to create PDM: {:?}", previous_time.elapsed());
         Ok(Self::new(taxa, matrix))
     }
 
@@ -140,6 +201,12 @@ impl PyDistMatrix {
 
     pub fn to_file(&self, path: &str) -> PyResult<()> {
         self.dm.to_file(Path::new(path)).map_err(|e| PyValueError::new_err(format!("{:?}", e)))
+    }
+
+    #[classmethod]
+    pub fn from_file(_cls: &Bound<'_, PyType>, path: &str) -> PyResult<Self> {
+        let dm = DistMatrix::from_path(Path::new(path)).map_err(|e| PyValueError::new_err(format!("{:?}", e)))?;
+        Ok(Self { dm })
     }
 
     #[classmethod]

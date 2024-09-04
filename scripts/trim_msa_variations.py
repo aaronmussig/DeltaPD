@@ -7,14 +7,14 @@ Create some variations on max length etc for a given alignment
 """
 def main():
 
-    MIN_LENGTH = 1200
+    MIN_LENGTH = 1000
 
-    path_ssu = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim.fna')
+    path_ssu = Path('/tmp/am/bac_ssu_sina_trim.fna')
 
     with path_ssu.open() as f:
         hits = RE_SEQ.findall(f.read())
 
-    with open(f'/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min{MIN_LENGTH}.fna', 'w') as f:
+    with open(f'/tmp/am/bac_ssu_sina_trim_min{MIN_LENGTH}.fna', 'w') as f:
         n_filtered = 0
         for hit, seq in hits:
             seq = seq.replace('\n', '')

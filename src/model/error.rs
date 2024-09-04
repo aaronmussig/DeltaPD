@@ -9,6 +9,7 @@ pub enum DeltaPDError {
     PhyloDMError(phylodm::error::PhyloErr),
     ParseError(std::string::FromUtf8Error),
     ParseFloatError(std::num::ParseFloatError),
+    ParseIntError(std::num::ParseIntError),
 }
 
 impl std::fmt::Display for DeltaPDError {
@@ -22,6 +23,7 @@ impl std::fmt::Display for DeltaPDError {
             DeltaPDError::PhyloDMError(e) => write!(f, "PhyloDM error: {}", e),
             DeltaPDError::ParseError(e) => write!(f, "Parse error: {}", e),
             DeltaPDError::ParseFloatError(e) => write!(f, "Parse float error: {}", e),
+            DeltaPDError::ParseIntError(e) => write!(f, "Parse int error: {}", e),
         }
     }
 }
@@ -37,6 +39,7 @@ impl std::error::Error for DeltaPDError {
             DeltaPDError::PhyloDMError(e) => Some(e),
             DeltaPDError::ParseError(e) => Some(e),
             DeltaPDError::ParseFloatError(e) => Some(e),
+            DeltaPDError::ParseIntError(e) => Some(e),
         }
     }
 }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 use phylodm::tree::Taxon;
 use crate::method::common_taxa::find_common_ids_in_pdms;
-use crate::method::knn::{create_vecs_from_knn2, get_pdm_k_nearest_neighbours_from_matrix};
+use crate::method::knn::{create_vecs_from_knn2, get_pdm_k_bootstrap_from_matrix, get_pdm_k_nearest_neighbours_from_matrix};
 use crate::model::error::DeltaPDResult;
 use crate::model::linalg::LinearModel;
 use crate::model::metadata::MetadataFile;
@@ -19,9 +19,15 @@ pub fn run_deltapd(qry_mat: &QryDistMatrix, ref_mat: &RefDistMatrix, metadata_fi
     let common_ids = find_common_ids_in_pdms(&ref_mat.dm.taxa, &qry_mat.dm.taxa, &metadata_file).unwrap();
     println!("Found common IDs in {:?}", previous_time.elapsed());
 
+    // So far no cases have been found where the equivalent taxa are needed
+    // let previous_time = Instant::now();
+    // let equivalent_ref_taxa = find_equivalent_taxa(&ref_mat.dm);
+    // let equivalent_qry_taxa = find_equivalent_taxa(&qry_mat.dm);
+    // println!("Found equivalent taxa in {:?}", previous_time.elapsed());
+
     // Get the knn
     let previous_time = Instant::now();
-    let knn_qry = get_pdm_k_nearest_neighbours_from_matrix(
+    let knn_qry = get_pdm_k_bootstrap_from_matrix(
         &qry_mat.dm.taxa,
         &common_ids.qry_taxa,
         &qry_mat.dm.matrix,

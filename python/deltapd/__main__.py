@@ -14,11 +14,11 @@ from deltapd.tree import Tree as DPDTree
 
 app = typer.Typer()
 
-
-
 GIDS_TO_PLOT = {
-    'GB_GCA_030751995.1',
+    "GB_GCA_016219485.1",
+    "RS_GCF_901686465.1"
 }
+
 
 def log(msg: str):
     print(f'{time.ctime()}: {msg}')
@@ -47,41 +47,39 @@ def read_taxonomy(path: Path):
     return out
 
 
-@app.command()
-def run(name: str):
-    # path_ref = Path('/Users/aaron/phd/DeltaPD/examples/reference.tree')
-    # path_qry = Path('/Users/aaron/phd/DeltaPD/examples/query.tree')
-    # path_meta = Path('/Users/aaron/phd/DeltaPDNew/example/metadata.tsv')
-
+def eg_ar53_reps():
     path_ref = Path('/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/ar53_r220.tree')
     path_qry = Path('/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/non_bs.tree')
     path_meta = Path('/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/ar53_non_bs_metadata.tsv')
     path_tax = Path('/Users/aaron/phd/DeltaPDNew/example/ar53_taxonomy.tsv')
+    return path_ref, path_qry, path_meta, path_tax
 
-    # Temp
-    # path_ref = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53.tree')
-    # path_qry = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min1200.tree')
-    # path_meta = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min1200_metadata.tsv')
-    # path_tax = Path('/Users/aaron/phd/DeltaPDNew/example/ar53_taxonomy.tsv')
 
-    # ref_dm_path = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53.dm')
-    # qry_dm_path = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min1200.dm')
+def eg_ar53_all():
+    path_ref = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53.tree')
+    path_qry = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min1200.tree')
+    path_meta = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53/arc_ssu_sina_trim_min1200_metadata.tsv')
+    path_tax = Path('/Users/aaron/phd/DeltaPDNew/example/ar53_taxonomy.tsv')
+    return path_ref, path_qry, path_meta, path_tax
 
-    d_taxonomy = read_taxonomy(path_tax)
 
-    # path_ref = Path('/Users/aaron/phd/DeltaPDNew/example/reference.tree')
-    # path_qry = Path('/Users/aaron/phd/DeltaPDNew/example/query.tree')
-    # path_meta = Path('/Users/aaron/phd/DeltaPDNew/example/metadata.tsv')
-    #
-    ref_dm_path = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53_ref.dm')
-    qry_dm_path = Path('/Users/aaron/phd/DeltaPDNew/data/gtdb_r220/ar53_qry.dm')
+def eg_basic():
+    path_ref = Path('/Users/aaron/phd/DeltaPD/examples/reference.tree')
+    path_qry = Path('/Users/aaron/phd/DeltaPD/examples/query.tree')
+    path_meta = Path('/Users/aaron/phd/DeltaPD/examples/metadata.tsv')
+    path_tax = None
+    return path_ref, path_qry, path_meta, path_tax
 
-    # ROOT_DIR = Path('/Users/aaron/phd/DeltaPDNew/data')
-    # # ROOT_DIR = Path('/srv/home/uqamussi/projects/deltapd/code/data')
-    #
-    # path_ref = ROOT_DIR / 'bac120_ref_tree.tree'
-    # path_qry = ROOT_DIR / 'bac120_ssu_tree.tree'
-    # path_meta = ROOT_DIR / 'bac120_ssu_reps_metadata.tsv'
+
+@app.command()
+def run(name: str):
+    # Load the example data
+
+    # path_ref, path_qry, path_meta, path_tax = eg_basic()
+    # path_ref, path_qry, path_meta, path_tax = eg_ar53_reps()
+    path_ref, path_qry, path_meta, path_tax = eg_ar53_all()
+
+    create_dm = True
 
     log('Reading metadata file')
     d_meta = read_meta(path_meta)
@@ -93,18 +91,15 @@ def run(name: str):
     log('REF: Getting nodes and edges for reference')
     ref = DPDTree(path_ref)
     log('REF: Found reference nodes')
-    ref_nodes = ref.get_nodes_and_edges_for_deltapd()
+    ref_nodes = ref.get_nodes_and_edges_for_deltapd(save=create_dm)
     log('REF: Creating reference DM')
     ref_dm = PyDistMatrix(ref_nodes[0], ref_nodes[1])
-    # ref_dm.to_file(str(ref_dm_path.absolute()))
 
     log('QRY: Getting nodes and edges for query')
     qry = DPDTree(path_qry)
-    qry_nodes = qry.get_nodes_and_edges_for_deltapd()
+    qry_nodes = qry.get_nodes_and_edges_for_deltapd(save=create_dm)
     log('QRY: Found query nodes')
     qry_dm = PyDistMatrix(qry_nodes[0], qry_nodes[1])
-    log('QRY: Creating query DM')
-    # qry_dm.to_file(str(qry_dm_path.absolute()))
 
     log('Creating the DeltaPD object')
     # path_meta = ROOT_DIR / 'bac120_ssu_reps_metadata_rs.tsv'
@@ -115,8 +110,8 @@ def run(name: str):
     maybe 10% of the total sum of branch lengths?
     """
 
-    log('Running DeltaPD') # there's an error where 0 can be all of the kNN distances # sample more??
-    params = PyParams(100, 10, PyLinearModelType.TheilSen, PyLinearModelError.RMSE, PyLinearModelCorr.Pearson)
+    log('Running DeltaPD')  # there's an error where 0 can be all of the kNN distances # sample more??
+    params = PyParams(100, 10, PyLinearModelType.RepeatedMedian, PyLinearModelError.RMSE, PyLinearModelCorr.Pearson)
 
     log("getting results")
     results = dpd.run(params)
@@ -166,7 +161,6 @@ def run(name: str):
 
 
 def create_agg_plots(agg_results, agg_xy):
-
     """
     These plots are good as they show the points that only contain those for the query taxon.
     It does fall apart a bit when you look at ones that are on long branches, as they are very rarely ever
@@ -202,8 +196,6 @@ def create_agg_plots(agg_results, agg_xy):
         # plt.close()
         print()
 
-
-
     return
 
 
@@ -212,7 +204,6 @@ def create_embedded_plots(results):
 
         if result.query_taxon not in GIDS_TO_PLOT:
             continue
-
 
         fig, ax = plt.subplots()
 
