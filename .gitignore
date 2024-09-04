@@ -8,3 +8,4 @@ target/
 data/
 example/
 tmp/
+*.so
