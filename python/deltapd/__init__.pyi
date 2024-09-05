@@ -1,4 +1,6 @@
 from enum import Enum
+from typing import List
+
 
 class PyDeltaPD:
 
@@ -34,7 +36,7 @@ class PyLinearModelCorr(Enum):
 
 
 class PyParams:
-    def __init__(self, knn: int, cpus: int, model: PyLinearModelType, error: PyLinearModelError, corr: PyLinearModelCorr):
+    def __init__(self, cpus: int, sample_size: float, replicates: int, taxa: List[str], model: PyLinearModelType, error: PyLinearModelError, corr: PyLinearModelCorr):
         pass
 
 

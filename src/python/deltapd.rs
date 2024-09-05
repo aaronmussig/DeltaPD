@@ -5,7 +5,7 @@ use crate::method::deltapd::run_deltapd;
 use crate::model::metadata::MetadataFile;
 use crate::model::params::{Params, PyParams};
 use crate::model::pdm::{PyDistMatrix, QryDistMatrix, RefDistMatrix};
-use crate::model::result::{OutputResult, PyOutputResult};
+use crate::model::result::{OutputResult, OutputResultSmall, PyOutputResult, PyOutputResultSmall};
 
 pub struct DeltaPD {
     pub qry_dm: QryDistMatrix,
@@ -22,7 +22,7 @@ impl DeltaPD {
         }
     }
 
-    pub fn run(&self, params: &Params) -> Vec<OutputResult> {
+    pub fn run(&self, params: &Params) -> Vec<OutputResultSmall> {
         run_deltapd(
             &self.qry_dm,
             &self.ref_dm,
@@ -53,7 +53,7 @@ impl PyDeltaPD {
         }
     }
 
-    pub fn run(&self, params: &PyParams) -> PyResult<Vec<PyOutputResult>> {
+    pub fn run(&self, params: &PyParams) -> PyResult<Vec<PyOutputResultSmall>> {
 
         let result = self.deltapd.run(&params.params);
 

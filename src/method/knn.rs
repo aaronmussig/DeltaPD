@@ -9,9 +9,11 @@ use crate::model::error::DeltaPDResult;
 use crate::model::metadata::MetadataFile;
 use crate::model::pdm::{QryDistMatrix, RefDistMatrix};
 use crate::ndarray::sort::get_nn_from_distance_matrix;
+use rand::distributions::{Distribution, Uniform};
 
-use rand::thread_rng;
+use rand::{thread_rng, Rng};
 use rand::seq::SliceRandom;
+use crate::model::params::Params;
 
 /// Get the nearest neighbours of all leaf nodes by patristic distance in a PDM.
 pub fn get_pdm_k_bootstrap_from_matrix(
@@ -175,17 +177,118 @@ pub struct PyKnnVecAsLinalg {
 }
 
 
+//
+// /// For a given taxon
+// pub fn create_vecs_from_knn2(
+//     qry_mat: &QryDistMatrix,
+//     ref_mat: &RefDistMatrix,
+//     q_taxon: &Taxon,
+//     metadata_file: &MetadataFile,
+// ) -> DeltaPDResult<KnnVecAsLinalg> {
+//
+//     // For the given query taxon, obtain the KNN vector of indices
+//     let q_knn_vec = knn_qry.get(q_taxon).unwrap();
+//     let n_knn = q_knn_vec.len();
+//
+//     // Create the output vectors
+//     let mut qry_vec: Vec<f64> = Vec::with_capacity(n_knn);
+//     let mut ref_vec: Vec<f64> = Vec::with_capacity(n_knn);
+//     let mut qry_labels: Vec<Taxon> = Vec::with_capacity(n_knn);
+//     let mut ref_labels: Vec<Taxon> = Vec::with_capacity(n_knn);
+//
+//     // Get the reference taxon since this is what we will be comparing to
+//     let r_taxon = metadata_file.get_ref_taxon(&q_taxon.0).unwrap();
+//
+//     // For the given query taxon, obtain the KNN vector of indices
+//     let q_knn_vec = knn_qry.get(q_taxon).unwrap();
+//
+//     // Iterate over each index to obtain the corresponding taxon
+//     for q_knn_idx in q_knn_vec {
+//         // Obtain the taxon from the index
+//         let q_knn_taxon = &qry_mat.dm.taxa[*q_knn_idx];
+//
+//         // Obtain the corresponding taxon from the reference PDM
+//         let r_knn_taxon = metadata_file.get_ref_taxon(&q_knn_taxon.0).unwrap();
+//
+//         // Obtain the distance between the query taxon and the KNN taxon
+//         let q_dist = qry_mat.dm.distance(&q_taxon, &q_knn_taxon);
+//
+//         // Obtain the distance between the reference taxon and the KNN taxon
+//         let r_dist = ref_mat.dm.distance(&Taxon(r_taxon.to_string()), &Taxon(r_knn_taxon.to_string()));
+//
+//         // Push the distances to the vectors
+//         qry_vec.push(q_dist);
+//         ref_vec.push(r_dist);
+//
+//         // Push the labels to the vector
+//         qry_labels.push(q_knn_taxon.clone());
+//         ref_labels.push(Taxon(r_knn_taxon.to_string()));
+//     }
+//
+//     Ok(KnnVecAsLinalg {
+//         qry_data: qry_vec,
+//         ref_data: ref_vec,
+//         qry_labels,
+//         ref_labels
+//     })
+// }
 
-/// For a given taxon
-pub fn create_vecs_from_knn2(
+
+pub fn sample_with_replacement_include(n: usize, sample_size: f64, include: usize) -> Vec<usize> {
+
+    // If sample size is greater than 1, then we are taking an absolute number
+    let n_samples = if sample_size > 1.0 {
+        sample_size as usize
+    } else {
+        (n as f64 * sample_size) as usize
+    };
+
+    // Setup the random number generator
+    let mut rng = thread_rng();
+    let distribution = Uniform::new(0, n);
+
+    // Create the output vector
+    let mut out: Vec<usize> = Vec::with_capacity(n_samples + 1);
+    while out.len() < n_samples {
+        let cur = distribution.sample(&mut rng);
+        if cur != include {
+            out.push(cur);
+        }
+    }
+    // Add the taxon of interest
+    out.push(include);
+    out
+}
+
+pub fn sample_with_replacement(n: usize, sample_size: f64, omit: usize) -> Vec<usize> {
+    let mut rng = thread_rng();
+    let n_samples = if sample_size > 1.0 {
+        sample_size as usize
+    } else {
+        (n as f64 * sample_size) as usize
+    };
+    let mut out: Vec<usize> = Vec::with_capacity(n_samples);
+    while out.len() < n_samples {
+        let cur = rng.gen_range(0..n);
+        if cur != omit {
+            out.push(cur);
+        }
+    }
+    out
+}
+
+pub fn create_vecs_from_knn3(
     qry_mat: &QryDistMatrix,
     ref_mat: &RefDistMatrix,
     q_taxon: &Taxon,
     metadata_file: &MetadataFile,
-    knn_qry: &HashMap<Taxon, Vec<usize>>,
+    params: &Params
 ) -> DeltaPDResult<KnnVecAsLinalg> {
-    // For the given query taxon, obtain the KNN vector of indices
-    let q_knn_vec = knn_qry.get(q_taxon).unwrap();
+
+    // For the given query taxon, randomly sample some points with replacement
+    // that do not include the query taxon
+    let query_taxon_idx = *qry_mat.dm.taxon_to_idx.get(q_taxon).unwrap();
+    let q_knn_vec = sample_with_replacement(qry_mat.dm.taxa.len(), params.sample_size, query_taxon_idx);
     let n_knn = q_knn_vec.len();
 
     // Create the output vectors
@@ -197,13 +300,10 @@ pub fn create_vecs_from_knn2(
     // Get the reference taxon since this is what we will be comparing to
     let r_taxon = metadata_file.get_ref_taxon(&q_taxon.0).unwrap();
 
-    // For the given query taxon, obtain the KNN vector of indices
-    let q_knn_vec = knn_qry.get(q_taxon).unwrap();
-
     // Iterate over each index to obtain the corresponding taxon
     for q_knn_idx in q_knn_vec {
         // Obtain the taxon from the index
-        let q_knn_taxon = &qry_mat.dm.taxa[*q_knn_idx];
+        let q_knn_taxon = &qry_mat.dm.taxa[q_knn_idx];
 
         // Obtain the corresponding taxon from the reference PDM
         let r_knn_taxon = metadata_file.get_ref_taxon(&q_knn_taxon.0).unwrap();
@@ -230,8 +330,5 @@ pub fn create_vecs_from_knn2(
         ref_labels
     })
 }
-
-
-
 
 

@@ -1,6 +1,7 @@
 import time
 from collections import defaultdict
 from pathlib import Path
+from typing import List
 
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
@@ -16,7 +17,22 @@ app = typer.Typer()
 
 GIDS_TO_PLOT = {
     "GB_GCA_016219485.1",
-    "RS_GCF_901686465.1"
+    "RS_GCF_027257195.1",
+    "GB_GCA_012329085.1",
+    "GB_GCA_011526375.1",
+    "RS_GCF_008122205.1",
+    "RS_GCF_009834785.1",
+    "GB_GCA_027076285.1",
+    "GB_GCA_003298465.1",
+    "GB_GCA_026014585.1",
+    "RS_GCF_014635105.1",
+    "GB_GCA_021819045.1",
+    "RS_GCF_014647235.1",
+    "GB_GCA_022426155.1",
+    "GB_GCA_017609225.1",
+    "GB_GCA_030626685.1",
+    "GB_GCA_016185435.1",
+    "GB_GCA_016214445.1",
 }
 
 
@@ -76,8 +92,8 @@ def run(name: str):
     # Load the example data
 
     # path_ref, path_qry, path_meta, path_tax = eg_basic()
-    # path_ref, path_qry, path_meta, path_tax = eg_ar53_reps()
-    path_ref, path_qry, path_meta, path_tax = eg_ar53_all()
+    path_ref, path_qry, path_meta, path_tax = eg_ar53_reps()
+    # path_ref, path_qry, path_meta, path_tax = eg_ar53_all()
 
     create_dm = True
 
@@ -111,18 +127,23 @@ def run(name: str):
     """
 
     log('Running DeltaPD')  # there's an error where 0 can be all of the kNN distances # sample more??
-    params = PyParams(100, 10, PyLinearModelType.RepeatedMedian, PyLinearModelError.RMSE, PyLinearModelCorr.Pearson)
+    taxa = list()
+    params = PyParams(10, 100, 1000, taxa, PyLinearModelType.TheilSen, PyLinearModelError.RMSE, PyLinearModelCorr.Pearson)
 
     log("getting results")
     results = dpd.run(params)
 
+    log('Aggregating results')
+    # results_agg = aggregate_bootstrapped_results(results)
+
     log('writing results')
     agg_results, agg_xy = write_results(results, d_meta)
+    print('Creating aggregate plot')
     create_agg_plots(agg_results, agg_xy)
 
     log('creating plots')
     # load_as_ete3(qry, results, agg_results, d_taxonomy)
-    create_embedded_plots(results)
+    # create_embedded_plots(results)
 
     """
     The goal for today is to get the output data from DeltaPD correctly.
@@ -159,6 +180,21 @@ def run(name: str):
 
     return
 
+def aggregate_bootstrapped_results(results):
+    out = dict()
+
+    for result in results:
+        if result.query_taxon not in out:
+            out[result.query_taxon] = []
+
+        print()
+
+
+
+    return out
+
+
+
 
 def create_agg_plots(agg_results, agg_xy):
     """
@@ -169,32 +205,44 @@ def create_agg_plots(agg_results, agg_xy):
     Poor linearity for these models does seem to indicate contamination.
     """
 
-    for qry_taxon, qry_inf in sorted(agg_results.items()):
-        #
-        # if qry_taxon not in {'GB_GCA_030751995.1', 'GB_GCA_003164295.1', 'GB_GCA_021852135.1', 'GB_GCA_014874415.1', 'GB_GCA_014729945.1', 'GB_GCA_018659375.1', 'GB_GCA_014728835.1', 'GB_GCA_026014615.1', 'GB_GCA_002508315.1', 'GB_GCA_016839385.1', 'GB_GCA_003096255.1', 'GB_GCA_018815265.1', 'GB_GCA_018609935.1', 'GB_GCA_900318035.1', 'GB_GCA_027016915.1', 'GB_GCA_018304285.1', 'GB_GCA_016202745.1', 'GB_GCA_023254445.1', 'RS_GCF_023256325.1'}:
-        #     continue
+    for cur_qry, cur_inf in agg_results.items():
 
-        if qry_taxon not in GIDS_TO_PLOT:
+        if cur_qry not in GIDS_TO_PLOT:
             continue
 
-        cur_xy = agg_xy[qry_taxon]
-        cur_x = [x[0] for x in cur_xy]
-        cur_y = [x[1] for x in cur_xy]
 
-        cmap = cm.get_cmap('viridis')
-        norm = plt.Normalize(vmin=0, vmax=1)
-        colors = cmap(norm(qry_inf))
+        fig, ax = plt.subplots()
+        ax.hist(cur_inf)
+        ax.set_title(f'KNN for: {cur_qry}')
+        plt.savefig(f'/tmp/deltapd/agg_{cur_qry}.png')
+        plt.close()
 
-        fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2)
-        ax1.scatter(cur_x, cur_y, c=colors)
-        ax1.set_title(f'KNN for: {qry_taxon}')
-
-        ax2.hist(qry_inf)
-
-        plt.show()
-        # plt.savefig('/tmp/am/embedded.png')
-        # plt.close()
-        print()
+    # for qry_taxon, qry_inf in sorted(agg_results.items()):
+    #     #
+    #     # if qry_taxon not in {'GB_GCA_030751995.1', 'GB_GCA_003164295.1', 'GB_GCA_021852135.1', 'GB_GCA_014874415.1', 'GB_GCA_014729945.1', 'GB_GCA_018659375.1', 'GB_GCA_014728835.1', 'GB_GCA_026014615.1', 'GB_GCA_002508315.1', 'GB_GCA_016839385.1', 'GB_GCA_003096255.1', 'GB_GCA_018815265.1', 'GB_GCA_018609935.1', 'GB_GCA_900318035.1', 'GB_GCA_027016915.1', 'GB_GCA_018304285.1', 'GB_GCA_016202745.1', 'GB_GCA_023254445.1', 'RS_GCF_023256325.1'}:
+    #     #     continue
+    #
+    #     if qry_taxon not in GIDS_TO_PLOT:
+    #         continue
+    #
+    #     cur_xy = agg_xy[qry_taxon]
+    #     cur_x = [x[0] for x in cur_xy]
+    #     cur_y = [x[1] for x in cur_xy]
+    #
+    #     cmap = cm.get_cmap('viridis')
+    #     norm = plt.Normalize(vmin=0, vmax=1)
+    #     colors = cmap(norm(qry_inf))
+    #
+    #     fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2)
+    #     ax1.scatter(cur_x, cur_y, c=colors)
+    #     ax1.set_title(f'KNN for: {qry_taxon}')
+    #
+    #     ax2.hist(qry_inf)
+    #
+    #     # plt.show()
+    #     plt.savefig(f'/tmp/deltapd/embedded_{qry_taxon}.png')
+    #     plt.close()
+    #     print()
 
     return
 
@@ -328,17 +376,16 @@ def write_results(results, d_meta):
     # Create plots of the points and the line of best fit
     for result in results:
         # taxon_removed = result.taxon_removed
-        qry_labels = result.knn_as_linalg.qry_labels
-        qry_data = result.knn_as_linalg.qry_data
-        ref_labels = result.knn_as_linalg.ref_labels
-        ref_data = result.knn_as_linalg.ref_data
+        # qry_labels = result.knn_as_linalg.qry_labels
+        # qry_data = result.knn_as_linalg.qry_data
+        # ref_labels = result.knn_as_linalg.ref_labels
+        # ref_data = result.knn_as_linalg.ref_data
         # relative_inf = result.relative_influence
-        std_err = result.std_error
+        # std_err = result.std_error
 
-        for cur_qry, cur_ref, cur_qry_data, cur_ref_data, cur_inf in zip(qry_labels, ref_labels, qry_data, ref_data,
-                                                                         std_err):
+        for cur_qry, cur_inf in zip(result.taxa, result.std_error):
             d_taxon_relative_inf[cur_qry].append(cur_inf)
-            d_taxon_data_points[cur_qry].append((cur_ref_data, cur_qry_data))
+            # d_taxon_data_points[cur_qry].append((cur_ref_data, cur_qry_data))
     d_results = dict()
 
     for cur_taxon, cur_vec in sorted(d_taxon_relative_inf.items()):

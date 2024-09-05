@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use rs_deltapd::method::common_taxa::find_common_ids_in_pdms;
 use rs_deltapd::method::deltapd::run_deltapd;
-use rs_deltapd::method::knn::{create_vecs_from_knn2, get_pdm_k_nearest_neighbours_from_matrix};
 use rs_deltapd::model::linalg::{LinearModelCorr, LinearModelError, LinearModelType};
 use rs_deltapd::model::metadata::MetadataFile;
 use rs_deltapd::model::params::Params;
@@ -40,11 +39,25 @@ fn main() {
         meta
     );
 
+    let taxa_subset: Vec<String> = vec![
+       // "GB_GCA_016185435.1".to_string() // This one is a good long-branch false positive
+        "RS_GCF_001307315.1".to_string() // Within the correct genus
 
-    let params = Params::new(30, 10, LinearModelType::RepeatedMedian, LinearModelError::RMSE, LinearModelCorr::R2);
+    ];
+    // let replicates = 2;
+    // let sample_size = 4.0; // if > 1 then this is the number of samples to use
+
+    let replicates = 1;
+    let sample_size = 50.0; // if > 1 then this is the number of samples to use
+
+
+    let params = Params::new(10, sample_size, replicates, taxa_subset, LinearModelType::RepeatedMedian, LinearModelError::RMSE, LinearModelCorr::R2);
 
     let _x = run_deltapd(&deltapd.qry_dm, &deltapd.ref_dm, &deltapd.metadata, &params).unwrap();
 
+    // Don't forget to build before running!
+    // Before any optimisations (no parallel processing), r50, s50 took: 145.07
+    // With some minor optimisations in the loop, r50, s50 took: 114-120
 
     println!("Done.");
 }

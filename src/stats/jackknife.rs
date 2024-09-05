@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use crate::model::error::{DeltaPDError, DeltaPDResult};
 use crate::model::linalg::{LinearModel, LinearModelCorr, LinearModelError, LinearModelType};
 use crate::stats::linalg::{calc_rmse, calc_theil_sen_gradient, calc_y_hat};
@@ -153,4 +154,52 @@ pub fn jackknife_fn(
         results.push(linear_model);
     }
     Ok(results)
+}
+
+
+pub fn jackknife_fn_masked(
+    x: &[f64],
+    y: &[f64],
+    model_type: LinearModelType,
+    model_error: LinearModelError,
+    model_corr: LinearModelCorr,
+    mask: &Vec<(usize, usize)>
+) -> DeltaPDResult<(Vec<LinearModel>, Vec<usize>)> {
+
+    // Validate the input
+    if x.len() != y.len() {
+        return Err(DeltaPDError::Error(
+            "Jackknife requires equal length vectors.".to_string(),
+        ));
+    }
+
+    // Create a mapping of the taxon ID to the indices
+    let mut taxon_to_indices: HashMap<usize, HashSet<usize>> = HashMap::new();
+    for (i, (x_i, y_i)) in mask.iter().enumerate() {
+        taxon_to_indices.entry(*x_i).or_insert(HashSet::new()).insert(i);
+        taxon_to_indices.entry(*y_i).or_insert(HashSet::new()).insert(i);
+    }
+
+    let n = taxon_to_indices.len();
+    let mut results = Vec::with_capacity(n);
+
+    let mut taxon_out = Vec::new();
+    for (taxon, indices) in taxon_to_indices.iter() {
+        taxon_out.push(*taxon);
+        let mut new_x: Vec<f64> = Vec::with_capacity(x.len()-indices.len());
+        let mut new_y: Vec<f64> = Vec::with_capacity(x.len()-indices.len());
+
+        // get all points without this taxon
+        for i in 0..x.len() {
+            if !indices.contains(&i) {
+                new_x.push(x[i]);
+                new_y.push(y[i]);
+            }
+        }
+
+        let linear_model = LinearModel::fit(model_type, model_error, model_corr, &new_x, &new_y);
+        results.push(linear_model);
+    }
+
+    Ok((results, taxon_out))
 }

@@ -1,8 +1,11 @@
-use ndarray::Array2;
+use std::collections::{HashMap, HashSet};
+use std::ops::AddAssign;
+use ndarray::{s, Array2};
 
 use crate::model::linalg::LinearModelParams;
 use crate::ndarray::filter::apply_mask_1d;
-use crate::stats::vec::{calc_mean, calc_median, calc_stddev};
+use crate::ndarray::sort::argsort_by;
+use crate::stats::vec::{calc_mean, calc_median, calc_median_sorted, calc_stddev};
 
 /// Calculate the gradient of X/Y coordinates using the Theil-Sen method.
 /// Assumes the intercept is 0.
@@ -26,6 +29,133 @@ pub fn calc_theil_sen_gradient(x: &[f64], y: &[f64]) -> LinearModelParams {
     // Take the median value
     LinearModelParams::new(calc_median(&estimate), 0.0)
 }
+
+
+// Primarily used for jackknifing and keeping pre-computed data
+pub struct RepeatedMedian<'a> {
+
+    // The slopes for each j that can be computed
+    pub slopes_j: Array2<f64>,
+    pub slopes_nonzero_mask: Array2<bool>,
+    pub slopes_j_sorted: Array2<usize>,
+
+    pub x: &'a [f64],
+    pub y: &'a [f64]
+}
+
+impl <'a> RepeatedMedian<'a> {
+    pub fn new(x: &'a [f64], y: &'a [f64]) -> Self {
+
+        if x.len() != y.len() {
+            panic!("RepeatedMedian requires equal length vectors.");
+        }
+
+        // Compute those values that will not change
+        let n = x.len();
+        let mut slopes_nonzero_mask: Array2<bool> = Array2::default((n, n));
+        let mut slopes_j: Array2<f64> = Array2::zeros((n, n));
+        let mut slopes_j_sorted: Array2<usize> = Array2::zeros((n, n));
+
+        for i in 0..n {
+            for j in 0..n {
+                let dx = x[i] - x[j];
+                let dy = y[i] - y[j];
+
+                if dx != 0.0 {
+                    slopes_nonzero_mask[[i, j]] = true;
+                    slopes_j[[i, j]] = dy / dx;
+                }
+            }
+
+            // Do an argsort on the
+            let slice = slopes_j.slice(s![i, ..]);
+            let argsorted = argsort_by(&slice, |a, b| {
+                a.partial_cmp(b).expect("Elements must not be NaN.")
+            });
+
+            // Update slopes_j_sorted with the values from argsorted for the current row
+            for (j, idx) in argsorted.into_iter().enumerate() {
+                slopes_j_sorted[[i, j]] = idx;
+            }
+        }
+
+        RepeatedMedian {
+            slopes_j,
+            slopes_nonzero_mask,
+            slopes_j_sorted,
+            x,
+            y
+        }
+    }
+
+    pub fn compute(&self, omit_idx: &HashSet<usize>) -> LinearModelParams {
+
+        let n = self.x.len();
+
+        let mut median_values: Vec<f64> = Vec::with_capacity(n);
+
+        // Go over each row
+        for i in 0..n {
+
+            let mut sorted_values: Vec<f64> = Vec::with_capacity(n);
+
+            // Go over each column in the sorted order
+            for j in 0..n {
+
+                let cur_idx = self.slopes_j_sorted[[i, j]];
+                let cur_mask = self.slopes_nonzero_mask[[i, cur_idx]];
+
+                if cur_mask && !omit_idx.contains(&cur_idx) {
+                    let cur_value = self.slopes_j[[i, cur_idx]];
+                    sorted_values.push(cur_value);
+                }
+
+            }
+
+            // Calculate the median
+            let median = calc_median_sorted(&sorted_values);
+            median_values.push(median);
+        }
+
+        let medslope = calc_median(&median_values);
+
+        let mut medinter_vec: Vec<f64> = Vec::with_capacity(n);
+        for i in 0..n {
+            if omit_idx.contains(&i) {
+                continue;
+            }
+            medinter_vec.push(self.y[i] - medslope * self.x[i]);
+        }
+        let medinter = calc_median(&medinter_vec);
+        LinearModelParams::new(medslope, medinter)
+    }
+
+}
+
+
+#[test]
+fn test_repeated_median_class() {
+    use crate::util::numeric::round_f64;
+
+    let x = vec![0.09, -0.4, -0.03, -0.33, -0.1, -0.48, 0.12, -0.01, 0.49, -0.47];
+    let y = vec![0.09, -0.2, -0.05, -0.3, -0.45, -0.08, -0.39, -0.42, 0.01, -0.19];
+
+    let rm = RepeatedMedian::new(&x, &y);
+    let mut omit: HashSet<usize> = HashSet::new();
+    let results = rm.compute(&omit);
+
+    assert_eq!(round_f64(results.gradient, 5), -0.33898);
+    assert_eq!(round_f64(results.intercept, 5), -0.34246);
+
+    omit.insert(2);
+    omit.insert(5);
+
+    let results = rm.compute(&omit);
+    assert_eq!(round_f64(results.gradient, 5), 0.01538);
+    assert_eq!(round_f64(results.intercept, 5), -0.24438);
+
+}
+
 
 
 // TODO: Implement O(n) algorithm: 10.1016/S0020-0190(03)00350-8
@@ -76,6 +206,8 @@ fn test_repeated_median() {
     assert_eq!(round_f64(results.gradient, 5), -0.33898);
     assert_eq!(round_f64(results.intercept, 5), -0.34246);
 }
+
+
 
 
 /// Calculate the coefficient of determination

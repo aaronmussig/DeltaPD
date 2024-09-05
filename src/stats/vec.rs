@@ -1,7 +1,9 @@
 /// Calculate the median value of a vector.
 /// // TODO: Can make this mutable for a bit more performance gain
 pub fn calc_median(x: &[f64]) -> f64 {
-
+    if x.is_empty() {
+        panic!("Cannot calculate the median of an empty vector.");
+    }
     let mut sorted = x.to_vec();
     sorted.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -11,6 +13,21 @@ pub fn calc_median(x: &[f64]) -> f64 {
         (sorted[mid - 1] + sorted[mid]) / 2.0
     } else {
         sorted[mid]
+    }
+}
+
+pub fn calc_median_sorted(x: &[f64]) -> f64 {
+    if x.is_empty() {
+        panic!("Cannot calculate the median of an empty vector.");
+    }
+
+    let n = x.len();
+    let mid = n / 2;
+
+    if n % 2 == 0 {
+        (x[mid - 1] + x[mid]) / 2.0
+    } else {
+        x[mid]
     }
 }
 

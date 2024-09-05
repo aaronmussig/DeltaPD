@@ -19,19 +19,32 @@ use crate::model::error::{DeltaPDError, DeltaPDResult};
 pub struct DistMatrix {
     pub taxa: Vec<Taxon>,
     pub taxon_to_idx: HashMap<Taxon, usize>,
+    pub taxon_str_to_idx: HashMap<String, usize>,
     pub matrix: Array2<f64>,
 }
 
 impl DistMatrix {
     pub fn new(taxa: Vec<Taxon>, matrix: Array2<f64>) -> DistMatrix {
-        let taxon_to_idx = taxa.iter().enumerate().map(|(i, taxon)| (taxon.clone(), i)).collect();
-        DistMatrix { taxa, matrix, taxon_to_idx }
+        let mut taxon_to_idx: HashMap<Taxon, usize> = HashMap::with_capacity(taxa.len());
+        let mut taxon_str_to_idx: HashMap<String, usize> = HashMap::with_capacity(taxa.len());
+
+        for (i, taxon) in taxa.iter().enumerate() {
+            taxon_to_idx.insert(taxon.clone(), i);
+            taxon_str_to_idx.insert(taxon.0.clone(), i);
+        }
+
+        DistMatrix { taxa, taxon_to_idx, taxon_str_to_idx, matrix }
+    }
+
+    pub fn get_taxon_from_string(&self, taxon: &str) -> &Taxon {
+        let taxon_index = *self.taxon_str_to_idx.get(taxon).unwrap();
+        &self.taxa[taxon_index]
     }
 
     pub fn distance(&self, a: &Taxon, b: &Taxon) -> f64 {
-        let a_idx = self.taxon_to_idx.get(a).unwrap();
-        let b_idx = self.taxon_to_idx.get(b).unwrap();
-        self.matrix[[*a_idx, *b_idx]]
+        let a_idx = *self.taxon_to_idx.get(a).unwrap();
+        let b_idx = *self.taxon_to_idx.get(b).unwrap();
+        self.matrix[[a_idx, b_idx]]
     }
 
     pub fn to_file(&self, path: &Path) -> DeltaPDResult<()> {
