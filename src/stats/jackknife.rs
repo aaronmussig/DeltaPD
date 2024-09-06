@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use crate::model::error::{DeltaPDError, DeltaPDResult};
-use crate::model::linalg::{LinearModel, LinearModelCorr, LinearModelError, LinearModelType};
-use crate::stats::linalg::{calc_rmse, calc_theil_sen_gradient, calc_y_hat};
+use crate::model::linalg::{LinearModel, LinearModelCorr, LinearModelError, LinearModelParams, LinearModelType};
+use crate::stats::linalg::{calc_rmse, calc_theil_sen_gradient, calc_y_hat, RepeatedMedian};
 use crate::stats::vec::calc_mean;
 
 /// Determine the relative influence of each data point in the jackknife set. Efron (1992).
@@ -158,20 +158,12 @@ pub fn jackknife_fn(
 
 
 pub fn jackknife_fn_masked(
-    x: &[f64],
-    y: &[f64],
     model_type: LinearModelType,
     model_error: LinearModelError,
     model_corr: LinearModelCorr,
-    mask: &Vec<(usize, usize)>
-) -> DeltaPDResult<(Vec<LinearModel>, Vec<usize>)> {
-
-    // Validate the input
-    if x.len() != y.len() {
-        return Err(DeltaPDError::Error(
-            "Jackknife requires equal length vectors.".to_string(),
-        ));
-    }
+    mask: &Vec<(usize, usize)>,
+    repeated_median: &RepeatedMedian
+) -> DeltaPDResult<(Vec<LinearModelParams>, Vec<usize>)> {
 
     // Create a mapping of the taxon ID to the indices
     let mut taxon_to_indices: HashMap<usize, HashSet<usize>> = HashMap::new();
@@ -186,19 +178,12 @@ pub fn jackknife_fn_masked(
     let mut taxon_out = Vec::new();
     for (taxon, indices) in taxon_to_indices.iter() {
         taxon_out.push(*taxon);
-        let mut new_x: Vec<f64> = Vec::with_capacity(x.len()-indices.len());
-        let mut new_y: Vec<f64> = Vec::with_capacity(x.len()-indices.len());
 
-        // get all points without this taxon
-        for i in 0..x.len() {
-            if !indices.contains(&i) {
-                new_x.push(x[i]);
-                new_y.push(y[i]);
-            }
-        }
+        let linear_model_params = repeated_median.compute(&indices);
 
-        let linear_model = LinearModel::fit(model_type, model_error, model_corr, &new_x, &new_y);
-        results.push(linear_model);
+
+        // let linear_model = LinearModel::fit_from_params(model_type, model_error, model_corr, &new_x, &new_y);
+        results.push(linear_model_params);
     }
 
     Ok((results, taxon_out))

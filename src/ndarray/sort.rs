@@ -15,6 +15,12 @@ pub fn argsort_by<S, F>(arr: &ArrayBase<S, Ix1>, mut compare: F) -> Vec<usize>
     indices
 }
 
+pub fn argsort_by_vec(arr: &Vec<f64>) -> Vec<usize> {
+    let mut indices: Vec<usize> = (0..arr.len()).collect();
+    indices.sort_unstable_by(|&i, &j| arr[i].partial_cmp(&arr[j]).expect("Elements must not be NaN."));
+    indices
+}
+
 /// Returns the nearest neighbours for each taxon in a distance matrix.
 pub fn get_nn_from_distance_matrix(matrix: &ArrayView<f64, Ix2>) -> Vec<Vec<usize>> {
     let n_slices = matrix.shape()[0];

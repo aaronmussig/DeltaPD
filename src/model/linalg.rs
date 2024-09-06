@@ -1,11 +1,18 @@
+use std::collections::{HashMap, HashSet};
 use clap::ValueEnum;
 use pyo3::pyclass;
-
+use bitvec::{bitvec, prelude};
+use bitvec::vec::BitVec;
+use bitvec::prelude::Lsb0;
+use phylodm::tree::Taxon;
 use crate::model::types::{CorrFn, ErrorFn, ModelFn};
+use crate::ndarray::sort::argsort_by_vec;
 use crate::stats::linalg::{
     calc_mse, calc_mse_norm, calc_pearson_correlation, calc_r2, calc_repeated_median, calc_rmse,
     calc_theil_sen_gradient,
 };
+use crate::stats::vec::{calc_median, calc_median_sorted};
+use crate::util::bitvec::bitvec_boolean_a_and_not_b;
 
 #[derive(Copy, Clone, Debug, ValueEnum)]
 pub enum LinearModelType {
@@ -176,6 +183,30 @@ pub struct LinearModel {
 }
 
 impl LinearModel {
+
+    pub fn fit_from_params(
+        params: LinearModelParams,
+        model_error: LinearModelError,
+        model_corr: LinearModelCorr,
+        x: &[f64],
+        y: &[f64],
+    ) -> Self {
+
+        // Calculate the error
+        let error_fn = model_error.get_fn();
+        let error = error_fn(x, y);
+
+        // Calculate the correlation
+        let corr_fn = model_corr.get_fn();
+        let corr = corr_fn(x, y);
+
+        Self {
+            params,
+            eval: LinearModelEval { error, corr },
+        }
+    }
+
+
     pub fn fit(
         model_type: LinearModelType,
         model_error: LinearModelError,
@@ -224,3 +255,133 @@ pub struct PyLinearModel {
     pub eval: PyLinearModelEval
 }
 
+
+
+pub struct LinearModelNew<'a> {
+    x: &'a [f64],
+    y: &'a [f64],
+    error: LinearModelError,
+    corr: LinearModelCorr,
+
+    // The slopes for each j that can be computed
+    pub slopes_j: Vec<Vec<f64>>,
+    pub slopes_nonzero_mask: Vec<BitVec>,
+    pub slopes_j_sorted: Vec<Vec<usize>>
+
+}
+
+
+impl <'a> LinearModelNew<'a> {
+
+    /// Create a new Linear Model and setup some values that we
+    /// don't want to compute again after jackknifing
+    pub fn new(
+        x: &'a [f64],
+        y: &'a [f64],
+        error: LinearModelError,
+        corr: LinearModelCorr
+    ) -> Self {
+
+        if x.len() != y.len()  {
+            panic!("requires equal length vectors.");
+        }
+
+        // Compute those values that will not change
+        let n = x.len();
+        let mut slopes_nonzero_mask: Vec<BitVec> = Vec::with_capacity(n);
+        let mut slopes_j: Vec<Vec<f64>> = Vec::with_capacity(n);
+        let mut slopes_j_sorted: Vec<Vec<usize>> = Vec::with_capacity(n);
+
+        for i in 0..n {
+            let mut cur_slopes_nonzero_mask = bitvec![0; n];
+            let mut cur_slopes_j: Vec<f64> = vec![0.0; n];
+            for j in 0..n {
+                let dx = x[i] - x[j];
+                let dy = y[i] - y[j];
+
+                if dx != 0.0 {
+                    cur_slopes_nonzero_mask.set(j, true);
+                    cur_slopes_j[j] = dy / dx;
+                }
+            }
+
+            // sort them
+            let cur_slopes_j_sorted = argsort_by_vec(&cur_slopes_j);
+
+            // Save them
+            slopes_nonzero_mask.push(cur_slopes_nonzero_mask);
+            slopes_j.push(cur_slopes_j);
+            slopes_j_sorted.push(cur_slopes_j_sorted);
+        }
+
+
+        Self {
+            x,
+            y,
+            error,
+            corr,
+            slopes_j,
+            slopes_nonzero_mask,
+            slopes_j_sorted
+        }
+    }
+
+    pub fn compute(&self, presence_bv: Option<&BitVec>) -> LinearModelParams {
+
+        let n = self.x.len();
+
+        let mut median_values: Vec<f64> = Vec::with_capacity(n);
+
+        // Go over each row
+        for i in 0..n {
+            let mut sorted_values: Vec<f64> = Vec::with_capacity(n);
+
+            // Get the current mask for the row
+            let cur_row_mask: BitVec = {
+                // Get the current row bitmask
+                let cur_row_bitmask =  &self.slopes_nonzero_mask[i];
+
+                // If a user has specified a taxon then do a bitwise comparison
+                if let Some(cur_label_bitmask) = presence_bv {
+                    bitvec_boolean_a_and_not_b(cur_row_bitmask, cur_label_bitmask)
+                } else {
+                    cur_row_bitmask.clone()
+                }
+            };
+
+            // Go over each column in the sorted order
+            for j in 0..n {
+                let cur_idx = self.slopes_j_sorted[i][j];
+                let cur_mask = *cur_row_mask.get(cur_idx).as_deref().unwrap();
+                if cur_mask  {
+                    let cur_value = self.slopes_j[i][cur_idx];
+                    sorted_values.push(cur_value);
+                }
+            }
+
+            // Calculate the median
+            let median = calc_median_sorted(&sorted_values);
+            median_values.push(median);
+        }
+
+        let medslope = calc_median(&median_values);
+
+        let mut medinter_vec: Vec<f64> = Vec::with_capacity(n);
+
+        if let Some(cur_bv) = presence_bv {
+            // If filtering is applied, then get only those points that do not contain the taxon
+            for i in  cur_bv.iter_zeros() {
+                medinter_vec.push(self.y[i] - medslope * self.x[i]);
+            }
+        } else {
+            // Otherwise, compute across the whole dataset
+            for i in 0..n {
+                medinter_vec.push(self.y[i] - medslope * self.x[i]);
+            }
+        }
+
+        let medinter = calc_median(&medinter_vec);
+        LinearModelParams::new(medslope, medinter)
+    }
+
+}

@@ -12,7 +12,8 @@ use phylodm::tree::{Edge, NodeId, Taxon};
 use pyo3::{Bound, pyclass, pymethods, PyResult};
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyType;
-
+use rand::distributions::{Distribution, Uniform};
+use rand::thread_rng;
 use crate::model::error::{DeltaPDError, DeltaPDResult};
 
 #[derive(Debug, Clone)]
@@ -34,6 +35,35 @@ impl DistMatrix {
         }
 
         DistMatrix { taxa, taxon_to_idx, taxon_str_to_idx, matrix }
+    }
+
+    /// Samples sample_size number of taxa from the matrix with replacement. Always includes taxon.
+    pub fn sample_taxa_with_replacement_include(&self, sample_size: f64, taxon: &Taxon) -> Vec<&Taxon> {
+        let n = self.taxa.len();
+
+        // If sample size is greater than 1, then we are taking an absolute number
+        let n_samples = if sample_size > 1.0 {
+            sample_size as usize
+        } else {
+            (n as f64 * sample_size) as usize
+        };
+
+        // Setup the random number generator
+        let mut rng = thread_rng();
+        let distribution = Uniform::new(0, n);
+
+        // Create the output vector
+        let mut out: Vec<&Taxon> = Vec::with_capacity(n_samples + 1);
+        while out.len() < n_samples {
+            let cur_taxon_idx = distribution.sample(&mut rng);
+            let cur_taxon = &self.taxa[cur_taxon_idx];
+            if cur_taxon != taxon {
+                out.push(cur_taxon);
+            }
+        }
+        // Add the taxon of interest
+        out.push(taxon);
+        out
     }
 
     pub fn get_taxon_from_string(&self, taxon: &str) -> &Taxon {

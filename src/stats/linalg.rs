@@ -4,7 +4,7 @@ use ndarray::{s, Array2};
 
 use crate::model::linalg::LinearModelParams;
 use crate::ndarray::filter::apply_mask_1d;
-use crate::ndarray::sort::argsort_by;
+use crate::ndarray::sort::{argsort_by, argsort_by_vec};
 use crate::stats::vec::{calc_mean, calc_median, calc_median_sorted, calc_stddev};
 
 /// Calculate the gradient of X/Y coordinates using the Theil-Sen method.
@@ -35,9 +35,9 @@ pub fn calc_theil_sen_gradient(x: &[f64], y: &[f64]) -> LinearModelParams {
 pub struct RepeatedMedian<'a> {
 
     // The slopes for each j that can be computed
-    pub slopes_j: Array2<f64>,
-    pub slopes_nonzero_mask: Array2<bool>,
-    pub slopes_j_sorted: Array2<usize>,
+    pub slopes_j: Vec<Vec<f64>>,
+    pub slopes_nonzero_mask: Vec<Vec<bool>>,
+    pub slopes_j_sorted: Vec<Vec<usize>>,
 
     pub x: &'a [f64],
     pub y: &'a [f64]
@@ -52,31 +52,30 @@ impl <'a> RepeatedMedian<'a> {
 
         // Compute those values that will not change
         let n = x.len();
-        let mut slopes_nonzero_mask: Array2<bool> = Array2::default((n, n));
-        let mut slopes_j: Array2<f64> = Array2::zeros((n, n));
-        let mut slopes_j_sorted: Array2<usize> = Array2::zeros((n, n));
+        let mut slopes_nonzero_mask: Vec<Vec<bool>> = Vec::with_capacity(n);
+        let mut slopes_j: Vec<Vec<f64>> = Vec::with_capacity(n);
+        let mut slopes_j_sorted: Vec<Vec<usize>> = Vec::with_capacity(n);
 
         for i in 0..n {
+            let mut cur_slopes_nonzero_mask: Vec<bool> = vec![false; n];
+            let mut cur_slopes_j: Vec<f64> = vec![0.0; n];
             for j in 0..n {
                 let dx = x[i] - x[j];
                 let dy = y[i] - y[j];
 
                 if dx != 0.0 {
-                    slopes_nonzero_mask[[i, j]] = true;
-                    slopes_j[[i, j]] = dy / dx;
+                    cur_slopes_nonzero_mask[j] = true;
+                    cur_slopes_j[j] = dy / dx;
                 }
             }
 
-            // Do an argsort on the
-            let slice = slopes_j.slice(s![i, ..]);
-            let argsorted = argsort_by(&slice, |a, b| {
-                a.partial_cmp(b).expect("Elements must not be NaN.")
-            });
+            // sort them
+            let cur_slopes_j_sorted = argsort_by_vec(&cur_slopes_j);
 
-            // Update slopes_j_sorted with the values from argsorted for the current row
-            for (j, idx) in argsorted.into_iter().enumerate() {
-                slopes_j_sorted[[i, j]] = idx;
-            }
+            // Save them
+            slopes_nonzero_mask.push(cur_slopes_nonzero_mask);
+            slopes_j.push(cur_slopes_j);
+            slopes_j_sorted.push(cur_slopes_j_sorted);
         }
 
         RepeatedMedian {
@@ -102,14 +101,13 @@ impl <'a> RepeatedMedian<'a> {
             // Go over each column in the sorted order
             for j in 0..n {
 
-                let cur_idx = self.slopes_j_sorted[[i, j]];
-                let cur_mask = self.slopes_nonzero_mask[[i, cur_idx]];
+                let cur_idx = self.slopes_j_sorted[i][j];
+                let cur_mask = self.slopes_nonzero_mask[i][cur_idx];
 
                 if cur_mask && !omit_idx.contains(&cur_idx) {
-                    let cur_value = self.slopes_j[[i, cur_idx]];
+                    let cur_value = self.slopes_j[i][cur_idx];
                     sorted_values.push(cur_value);
                 }
-
             }
 
             // Calculate the median

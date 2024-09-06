@@ -9,11 +9,13 @@ use crate::model::result::OutputResultSmall;
 use crate::stats::jackknife::{calc_prop_std_error_of_jackknife, calc_relative_jackknife_influence, jackknife_fn, jackknife_fn_masked};
 use phylodm::tree::Taxon;
 use rayon::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 use std::fs::File;
 use std::io::prelude::*;
-use crate::model::linalg::LinearModel;
+use bitvec::bitvec;
+use bitvec::vec::BitVec;
+use crate::model::linalg::{LinearModel, LinearModelNew};
 use indicatif::ParallelProgressIterator;
 use rayon::iter::{ParallelIterator, IntoParallelRefIterator};
 use crate::stats::linalg::{calc_repeated_median, RepeatedMedian};
@@ -99,24 +101,37 @@ pub fn run_deltapd_on_taxon_test(cur_job: &Job, qry_mat: &QryDistMatrix, ref_mat
     let q_taxon = cur_job.taxon;
 
     // Sample taxa with replacement
+    let qry_taxa_sampled = qry_mat.dm.sample_taxa_with_replacement_include(params.sample_size, q_taxon);
+    let qry_taxa_sampled_unq = qry_taxa_sampled.iter().cloned().collect::<HashSet<&Taxon>>();
+
     let query_taxon_idx = *(qry_mat.dm.taxon_to_idx.get(q_taxon).unwrap());
     let query_ids_to_use = sample_with_replacement_include(qry_mat.dm.taxa.len(), params.sample_size, query_taxon_idx);
+    let query_ids_to_use_unq = query_ids_to_use.iter().cloned().collect::<HashSet<usize>>();
 
-    // println!("Processing taxon: {} (id={}, replicate={})", q_taxon.0, query_taxon_idx, cur_job.replicate);
+    // Calculate the number of data points that will be included in this
+    let n_data_points = query_ids_to_use.len() * (query_ids_to_use.len() - 1) / 2;
+
     // Collect the pairwise distances for those query taxa
-    let mut qry_data: Vec<f64> = Vec::with_capacity(query_ids_to_use.len());
-    let mut qry_labels_i: Vec<String> = Vec::with_capacity(query_ids_to_use.len());
-    let mut qry_labels_j: Vec<String> = Vec::with_capacity(query_ids_to_use.len());
-    let mut ref_data: Vec<f64> = Vec::with_capacity(query_ids_to_use.len());
-    let mut ref_labels_i: Vec<String> = Vec::with_capacity(query_ids_to_use.len());
-    let mut ref_labels_j: Vec<String> = Vec::with_capacity(query_ids_to_use.len());
-    let mut mask: Vec<(usize, usize)> = Vec::with_capacity(query_ids_to_use.len());
+    let mut qry_data: Vec<f64> = Vec::with_capacity(n_data_points);
+    let mut ref_data: Vec<f64> = Vec::with_capacity(n_data_points);
+
+    let mut qry_labels_i: Vec<String> = Vec::with_capacity(n_data_points);
+    let mut qry_labels_j: Vec<String> = Vec::with_capacity(n_data_points);
+    let mut ref_labels_i: Vec<String> = Vec::with_capacity(n_data_points);
+    let mut ref_labels_j: Vec<String> = Vec::with_capacity(n_data_points);
+    let mut mask: Vec<(usize, usize)> = Vec::with_capacity(n_data_points);
+    let mut label_bitmask: HashMap<&Taxon, BitVec> = HashMap::with_capacity(query_ids_to_use_unq.len());
+
+    // Initialise the bitmask for each taxon
+    for qry_idx in query_ids_to_use_unq {
+        let qry_taxon = &qry_mat.dm.taxa[qry_idx];
+        label_bitmask.insert(qry_taxon, bitvec![0; n_data_points]);
+    }
 
     // Iterate over each randomly sampled taxon index
-    for idx_i in 0..query_ids_to_use.len() {
+    for (idx_i, &qry_idx_i) in query_ids_to_use.iter().enumerate() {
 
         // Collect the query and reference taxa (from)
-        let qry_idx_i = query_ids_to_use[idx_i];
         let qry_taxon_i = &qry_mat.dm.taxa[qry_idx_i];
         let ref_taxon_i_str = metadata_file.get_ref_taxon(&qry_taxon_i.0).unwrap();
         let ref_taxon_i = ref_mat.dm.get_taxon_from_string(ref_taxon_i_str);
@@ -136,6 +151,8 @@ pub fn run_deltapd_on_taxon_test(cur_job: &Job, qry_mat: &QryDistMatrix, ref_mat
 
             // Store the values
             mask.push((qry_idx_i, qry_idx_j));
+            label_bitmask.get_mut(qry_taxon_i).unwrap().set(idx_j, true);
+            label_bitmask.get_mut(qry_taxon_j).unwrap().set(idx_i, true);
 
             qry_data.push(qry_dist);
             qry_labels_i.push(qry_taxon_i.0.clone());
@@ -148,16 +165,30 @@ pub fn run_deltapd_on_taxon_test(cur_job: &Job, qry_mat: &QryDistMatrix, ref_mat
     }
 
     let previous_time = Instant::now();
+    let linmodel = LinearModelNew::new(
+        &ref_data,
+        &qry_data,
+        params.model_error,
+        params.model_corr
+    );
+    println!(">>>> Linear model new init {:?}", previous_time.elapsed());
+
+    let previous_time = Instant::now();
+    let cur_mask = label_bitmask.get(q_taxon).unwrap();
+    let res1 = linmodel.compute(None);
+    println!(">>>> Linear model new compute {:?}", previous_time.elapsed());
+
+    let previous_time = Instant::now();
     let repeated_median = RepeatedMedian::new(&ref_data, &qry_data);
-    repeated_median.compute(&HashSet::new());
+    let res2 = repeated_median.compute(&HashSet::new());
     println!(">>>> Repeated median class took {:?}", previous_time.elapsed());
 
     let previous_time = Instant::now();
-    repeated_median.compute(&HashSet::new());
+    let res3 = repeated_median.compute(&HashSet::new());
     println!(">>>> Repeated median class (again) took {:?}", previous_time.elapsed());
 
     let previous_time = Instant::now();
-    let repeated_median_old = calc_repeated_median(&ref_data, &qry_data);
+    let res4 = calc_repeated_median(&ref_data, &qry_data);
     println!(">>>> Repeated median function took {:?}", previous_time.elapsed());
 
     let linear_model_base = LinearModel::fit(
@@ -171,42 +202,41 @@ pub fn run_deltapd_on_taxon_test(cur_job: &Job, qry_mat: &QryDistMatrix, ref_mat
     // Perform jacknifing on the data
     // When doing this do I want to remove ALL points that belong to a given taxon?
     let (jackknife_models, taxa_order) = jackknife_fn_masked(
-        &ref_data,
-        &qry_data,
         params.model,
         params.model_error,
         params.model_corr,
-        &mask
+        &mask,
+        &repeated_median
     ).unwrap();
-
-    // As I am lazy write the data to disk
-    let mut file = File::create(format!("/tmp/dpd/deltapd_xy_{}_{}.tsv", q_taxon.0, cur_job.replicate)).unwrap();
-    file.write_all(b"query_taxon_i\tqry_taxon_j\tref_taxon_i\tqry_taxon_j\tquery_dist\tref_dist\n").unwrap();
-    for i in 0..qry_data.len() {
-        let line = format!("{}\t{}\t{}\t{}\t{}\t{}\n", qry_labels_i[i], qry_labels_j[i], ref_labels_i[i], ref_labels_j[i], qry_data[i], ref_data[i]);
-        file.write_all(line.as_bytes()).unwrap();
-    }
-
-    // Calculate the relative influence function
-    let relative_influence = calc_relative_jackknife_influence(
-        &jackknife_models
-            .iter()
-            .map(|x| x.eval.error)
-            .collect::<Vec<f64>>(),
-    );
-
-    let std_error = calc_prop_std_error_of_jackknife(&relative_influence);
-
-    // Write out the relative influence values
-    let mut file = File::create(format!("/tmp/dpd/deltapd_relative_influence_{}_{}.tsv", q_taxon.0, cur_job.replicate)).unwrap();
-    file.write_all(b"taxon\trelative_influence\tstd_error\n").unwrap();
-    for (i, cur_taxon_idx) in taxa_order.iter().enumerate() {
-        let cur_taxon = &qry_mat.dm.taxa[*cur_taxon_idx];
-        let cur_rinf = relative_influence[i];
-        let cur_err = std_error[i];
-        let line = format!("{}\t{}\t{}\n", cur_taxon.0, cur_rinf, cur_err);
-        file.write_all(line.as_bytes()).unwrap();
-    }
+    //
+    // // As I am lazy write the data to disk
+    // let mut file = File::create(format!("/tmp/dpd/deltapd_xy_{}_{}.tsv", q_taxon.0, cur_job.replicate)).unwrap();
+    // file.write_all(b"query_taxon_i\tqry_taxon_j\tref_taxon_i\tqry_taxon_j\tquery_dist\tref_dist\n").unwrap();
+    // for i in 0..qry_data.len() {
+    //     let line = format!("{}\t{}\t{}\t{}\t{}\t{}\n", qry_labels_i[i], qry_labels_j[i], ref_labels_i[i], ref_labels_j[i], qry_data[i], ref_data[i]);
+    //     file.write_all(line.as_bytes()).unwrap();
+    // }
+    //
+    // // Calculate the relative influence function
+    // let relative_influence = calc_relative_jackknife_influence(
+    //     &jackknife_models
+    //         .iter()
+    //         .map(|x| x.eval.error)
+    //         .collect::<Vec<f64>>(),
+    // );
+    //
+    // let std_error = calc_prop_std_error_of_jackknife(&relative_influence);
+    //
+    // // Write out the relative influence values
+    // let mut file = File::create(format!("/tmp/dpd/deltapd_relative_influence_{}_{}.tsv", q_taxon.0, cur_job.replicate)).unwrap();
+    // file.write_all(b"taxon\trelative_influence\tstd_error\n").unwrap();
+    // for (i, cur_taxon_idx) in taxa_order.iter().enumerate() {
+    //     let cur_taxon = &qry_mat.dm.taxa[*cur_taxon_idx];
+    //     let cur_rinf = relative_influence[i];
+    //     let cur_err = std_error[i];
+    //     let line = format!("{}\t{}\t{}\n", cur_taxon.0, cur_rinf, cur_err);
+    //     file.write_all(line.as_bytes()).unwrap();
+    // }
 
 }
 

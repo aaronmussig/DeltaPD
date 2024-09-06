@@ -26,6 +26,7 @@ phylotree = "0.1.2"
 numpy = { version = "0.21.0" }
 md-5 = "0.10.6"
 tempfile = "3.10.1"
+bitvec = "1.0.1"
 
 [dev-dependencies]
 criterion = "0.5.1"

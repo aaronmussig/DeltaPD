@@ -1,4 +1,6 @@
+
 use std::path::PathBuf;
+use std::time::Instant;
 use rs_deltapd::method::common_taxa::find_common_ids_in_pdms;
 use rs_deltapd::method::deltapd::run_deltapd;
 use rs_deltapd::model::linalg::{LinearModelCorr, LinearModelError, LinearModelType};
@@ -7,8 +9,10 @@ use rs_deltapd::model::params::Params;
 use rs_deltapd::model::pdm::{DistMatrix, QryDistMatrix, RefDistMatrix};
 use rs_deltapd::python::deltapd::DeltaPD;
 
-fn main() {
 
+
+
+fn main() {
     // Ref total sum: 1235.005060000002
     // Qry total sum: 132.6799049183003
     let ref_path = PathBuf::from("/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/ar53_r220.dm");
@@ -48,7 +52,7 @@ fn main() {
     // let sample_size = 4.0; // if > 1 then this is the number of samples to use
 
     let replicates = 1;
-    let sample_size = 50.0; // if > 1 then this is the number of samples to use
+    let sample_size = 4.0; // if > 1 then this is the number of samples to use
 
 
     let params = Params::new(10, sample_size, replicates, taxa_subset, LinearModelType::RepeatedMedian, LinearModelError::RMSE, LinearModelCorr::R2);
