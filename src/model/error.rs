@@ -10,6 +10,7 @@ pub enum DeltaPDError {
     ParseError(std::string::FromUtf8Error),
     ParseFloatError(std::num::ParseFloatError),
     ParseIntError(std::num::ParseIntError),
+    ThreadPoolBuildError(rayon::ThreadPoolBuildError),
 }
 
 impl std::fmt::Display for DeltaPDError {
@@ -24,6 +25,7 @@ impl std::fmt::Display for DeltaPDError {
             DeltaPDError::ParseError(e) => write!(f, "Parse error: {}", e),
             DeltaPDError::ParseFloatError(e) => write!(f, "Parse float error: {}", e),
             DeltaPDError::ParseIntError(e) => write!(f, "Parse int error: {}", e),
+            DeltaPDError::ThreadPoolBuildError(e) => write!(f, "ThreadPoolBuildError: {}", e),
         }
     }
 }
@@ -40,6 +42,7 @@ impl std::error::Error for DeltaPDError {
             DeltaPDError::ParseError(e) => Some(e),
             DeltaPDError::ParseFloatError(e) => Some(e),
             DeltaPDError::ParseIntError(e) => Some(e),
+            DeltaPDError::ThreadPoolBuildError(e) => Some(e),
         }
     }
 }

@@ -38,7 +38,7 @@ impl DistMatrix {
     }
 
     /// Samples sample_size number of taxa from the matrix with replacement. Always includes taxon.
-    pub fn sample_taxa_with_replacement_include(&self, sample_size: f64, taxon: &Taxon) -> Vec<&Taxon> {
+    pub fn sample_taxa_with_replacement_include<'a>(&'a self, sample_size: f64, taxon: &'a Taxon) -> Vec<&'a Taxon> {
         let n = self.taxa.len();
 
         // If sample size is greater than 1, then we are taking an absolute number

@@ -1,18 +1,13 @@
-use std::collections::{HashMap, HashSet};
-use clap::ValueEnum;
-use pyo3::pyclass;
-use bitvec::{bitvec, prelude};
-use bitvec::vec::BitVec;
-use bitvec::prelude::Lsb0;
-use phylodm::tree::Taxon;
 use crate::model::types::{CorrFn, ErrorFn, ModelFn};
 use crate::ndarray::sort::argsort_by_vec;
-use crate::stats::linalg::{
-    calc_mse, calc_mse_norm, calc_pearson_correlation, calc_r2, calc_repeated_median, calc_rmse,
-    calc_theil_sen_gradient,
-};
+use crate::stats::linalg::{calc_mse, calc_mse_norm, calc_pearson_correlation, calc_r2, calc_repeated_median, calc_rmse, calc_theil_sen_gradient};
 use crate::stats::vec::{calc_median, calc_median_sorted};
 use crate::util::bitvec::bitvec_boolean_a_and_not_b;
+use bitvec::prelude::Lsb0;
+use bitvec::vec::BitVec;
+use bitvec::bitvec;
+use clap::ValueEnum;
+use pyo3::pyclass;
 
 #[derive(Copy, Clone, Debug, ValueEnum)]
 pub enum LinearModelType {
@@ -119,6 +114,7 @@ impl PyLinearModelCorr {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct LinearModelParams {
     pub gradient: f64,
     pub intercept: f64,
@@ -135,7 +131,7 @@ impl LinearModelParams {
     pub fn to_python(&self) -> PyLinearModelParams {
         PyLinearModelParams {
             gradient: self.gradient,
-            intercept: self.intercept
+            intercept: self.intercept,
         }
     }
 }
@@ -146,7 +142,7 @@ pub struct PyLinearModelParams {
     #[pyo3(get, set)]
     pub gradient: f64,
     #[pyo3(get, set)]
-    pub intercept: f64
+    pub intercept: f64,
 }
 
 pub struct LinearModelEval {
@@ -162,7 +158,7 @@ impl LinearModelEval {
     pub fn to_python(&self) -> PyLinearModelEval {
         PyLinearModelEval {
             error: self.error,
-            corr: self.corr
+            corr: self.corr,
         }
     }
 }
@@ -173,7 +169,7 @@ pub struct PyLinearModelEval {
     #[pyo3(get, set)]
     pub error: f64,
     #[pyo3(get, set)]
-    pub corr: f64
+    pub corr: f64,
 }
 
 
@@ -183,7 +179,6 @@ pub struct LinearModel {
 }
 
 impl LinearModel {
-
     pub fn fit_from_params(
         params: LinearModelParams,
         model_error: LinearModelError,
@@ -241,7 +236,7 @@ impl LinearModel {
     pub fn to_python(&self) -> PyLinearModel {
         PyLinearModel {
             params: self.params.to_python(),
-            eval: self.eval.to_python()
+            eval: self.eval.to_python(),
         }
     }
 }
@@ -252,37 +247,29 @@ pub struct PyLinearModel {
     #[pyo3(get, set)]
     pub params: PyLinearModelParams,
     #[pyo3(get, set)]
-    pub eval: PyLinearModelEval
+    pub eval: PyLinearModelEval,
 }
-
 
 
 pub struct LinearModelNew<'a> {
     x: &'a [f64],
     y: &'a [f64],
-    error: LinearModelError,
-    corr: LinearModelCorr,
 
     // The slopes for each j that can be computed
     pub slopes_j: Vec<Vec<f64>>,
     pub slopes_nonzero_mask: Vec<BitVec>,
-    pub slopes_j_sorted: Vec<Vec<usize>>
-
+    pub slopes_j_sorted: Vec<Vec<usize>>,
 }
 
 
-impl <'a> LinearModelNew<'a> {
-
+impl<'a> LinearModelNew<'a> {
     /// Create a new Linear Model and setup some values that we
     /// don't want to compute again after jackknifing
     pub fn new(
         x: &'a [f64],
         y: &'a [f64],
-        error: LinearModelError,
-        corr: LinearModelCorr
     ) -> Self {
-
-        if x.len() != y.len()  {
+        if x.len() != y.len() {
             panic!("requires equal length vectors.");
         }
 
@@ -318,16 +305,13 @@ impl <'a> LinearModelNew<'a> {
         Self {
             x,
             y,
-            error,
-            corr,
             slopes_j,
             slopes_nonzero_mask,
-            slopes_j_sorted
+            slopes_j_sorted,
         }
     }
 
     pub fn compute(&self, presence_bv: Option<&BitVec>) -> LinearModelParams {
-
         let n = self.x.len();
 
         let mut median_values: Vec<f64> = Vec::with_capacity(n);
@@ -339,7 +323,7 @@ impl <'a> LinearModelNew<'a> {
             // Get the current mask for the row
             let cur_row_mask: BitVec = {
                 // Get the current row bitmask
-                let cur_row_bitmask =  &self.slopes_nonzero_mask[i];
+                let cur_row_bitmask = &self.slopes_nonzero_mask[i];
 
                 // If a user has specified a taxon then do a bitwise comparison
                 if let Some(cur_label_bitmask) = presence_bv {
@@ -353,7 +337,7 @@ impl <'a> LinearModelNew<'a> {
             for j in 0..n {
                 let cur_idx = self.slopes_j_sorted[i][j];
                 let cur_mask = *cur_row_mask.get(cur_idx).as_deref().unwrap();
-                if cur_mask  {
+                if cur_mask {
                     let cur_value = self.slopes_j[i][cur_idx];
                     sorted_values.push(cur_value);
                 }
@@ -370,7 +354,7 @@ impl <'a> LinearModelNew<'a> {
 
         if let Some(cur_bv) = presence_bv {
             // If filtering is applied, then get only those points that do not contain the taxon
-            for i in  cur_bv.iter_zeros() {
+            for i in cur_bv.iter_zeros() {
                 medinter_vec.push(self.y[i] - medslope * self.x[i]);
             }
         } else {
@@ -384,4 +368,49 @@ impl <'a> LinearModelNew<'a> {
         LinearModelParams::new(medslope, medinter)
     }
 
+    pub fn fit(&self, presence_bv: Option<&BitVec>, params: LinearModelParams, model_error: LinearModelError, model_corr: LinearModelCorr) -> LinearModelEval {
+        let error_fn = model_error.get_fn();
+        let corr_fn = model_corr.get_fn();
+
+        // If the BitVec has been provided, subset the x/y data to those points
+        if let Some(taxon_bv) = presence_bv {
+            let mut y_hat: Vec<f64> = Vec::with_capacity(taxon_bv.len());
+            let mut y: Vec<f64> = Vec::with_capacity(taxon_bv.len());
+            for i in taxon_bv.iter_zeros() {
+                y_hat.push(params.gradient * self.x[i] + params.intercept);
+                y.push(self.y[i]);
+            }
+            let error = error_fn(&y, &y_hat);
+            let corr = corr_fn(&y, &y_hat);
+            LinearModelEval::new(error, corr)
+        } else {
+            let mut y_hat = Vec::with_capacity(self.x.len());
+            for i in 0..self.x.len() {
+                y_hat.push(params.gradient * self.x[i] + params.intercept);
+            }
+            let error = error_fn(self.y, &y_hat);
+            let corr = corr_fn(self.y, &y_hat);
+            LinearModelEval::new(error, corr)
+        }
+    }
+}
+
+
+#[test]
+fn test_linear_model_new() {
+    use crate::util::numeric::round_f64;
+
+    let x = vec![0.09, -0.4, -0.03, -0.33, -0.1, -0.48, 0.12, -0.01, 0.49, -0.47];
+    let y = vec![0.09, -0.2, -0.05, -0.3, -0.45, -0.08, -0.39, -0.42, 0.01, -0.19];
+
+    let model = LinearModelNew::new(&x, &y);
+    let results = model.compute(None);
+
+    assert_eq!(round_f64(results.gradient, 5), -0.33898);
+    assert_eq!(round_f64(results.intercept, 5), -0.34246);
+
+    let bit_vec = bitvec![0, 0, 1, 0, 0, 1, 0, 0, 0, 0];
+    let results = model.compute(Some(&bit_vec));
+    assert_eq!(round_f64(results.gradient, 5), 0.01538);
+    assert_eq!(round_f64(results.intercept, 5), -0.24438);
 }

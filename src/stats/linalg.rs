@@ -1,10 +1,9 @@
-use std::collections::{HashMap, HashSet};
-use std::ops::AddAssign;
-use ndarray::{s, Array2};
+use ndarray::Array2;
+use std::collections::HashSet;
 
 use crate::model::linalg::LinearModelParams;
 use crate::ndarray::filter::apply_mask_1d;
-use crate::ndarray::sort::{argsort_by, argsort_by_vec};
+use crate::ndarray::sort::argsort_by_vec;
 use crate::stats::vec::{calc_mean, calc_median, calc_median_sorted, calc_stddev};
 
 /// Calculate the gradient of X/Y coordinates using the Theil-Sen method.
@@ -33,19 +32,17 @@ pub fn calc_theil_sen_gradient(x: &[f64], y: &[f64]) -> LinearModelParams {
 
 // Primarily used for jackknifing and keeping pre-computed data
 pub struct RepeatedMedian<'a> {
-
     // The slopes for each j that can be computed
     pub slopes_j: Vec<Vec<f64>>,
     pub slopes_nonzero_mask: Vec<Vec<bool>>,
     pub slopes_j_sorted: Vec<Vec<usize>>,
 
     pub x: &'a [f64],
-    pub y: &'a [f64]
+    pub y: &'a [f64],
 }
 
-impl <'a> RepeatedMedian<'a> {
+impl<'a> RepeatedMedian<'a> {
     pub fn new(x: &'a [f64], y: &'a [f64]) -> Self {
-
         if x.len() != y.len() {
             panic!("RepeatedMedian requires equal length vectors.");
         }
@@ -83,24 +80,21 @@ impl <'a> RepeatedMedian<'a> {
             slopes_nonzero_mask,
             slopes_j_sorted,
             x,
-            y
+            y,
         }
     }
 
     pub fn compute(&self, omit_idx: &HashSet<usize>) -> LinearModelParams {
-
         let n = self.x.len();
 
         let mut median_values: Vec<f64> = Vec::with_capacity(n);
 
         // Go over each row
         for i in 0..n {
-
             let mut sorted_values: Vec<f64> = Vec::with_capacity(n);
 
             // Go over each column in the sorted order
             for j in 0..n {
-
                 let cur_idx = self.slopes_j_sorted[i][j];
                 let cur_mask = self.slopes_nonzero_mask[i][cur_idx];
 
@@ -127,7 +121,6 @@ impl <'a> RepeatedMedian<'a> {
         let medinter = calc_median(&medinter_vec);
         LinearModelParams::new(medslope, medinter)
     }
-
 }
 
 
@@ -151,9 +144,7 @@ fn test_repeated_median_class() {
     let results = rm.compute(&omit);
     assert_eq!(round_f64(results.gradient, 5), 0.01538);
     assert_eq!(round_f64(results.intercept, 5), -0.24438);
-
 }
-
 
 
 // TODO: Implement O(n) algorithm: 10.1016/S0020-0190(03)00350-8
@@ -204,8 +195,6 @@ fn test_repeated_median() {
     assert_eq!(round_f64(results.gradient, 5), -0.33898);
     assert_eq!(round_f64(results.intercept, 5), -0.34246);
 }
-
-
 
 
 /// Calculate the coefficient of determination

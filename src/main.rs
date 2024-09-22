@@ -1,7 +1,5 @@
 
 use std::path::PathBuf;
-use std::time::Instant;
-use rs_deltapd::method::common_taxa::find_common_ids_in_pdms;
 use rs_deltapd::method::deltapd::run_deltapd;
 use rs_deltapd::model::linalg::{LinearModelCorr, LinearModelError, LinearModelType};
 use rs_deltapd::model::metadata::MetadataFile;
@@ -43,25 +41,34 @@ fn main() {
         meta
     );
 
-    let taxa_subset: Vec<String> = vec![
-       // "GB_GCA_016185435.1".to_string() // This one is a good long-branch false positive
-        "RS_GCF_001307315.1".to_string() // Within the correct genus
+    /*
+    include the distances to doubel cpoy genes
+     */
 
+    let taxa_subset: Vec<String> = vec![
+       "GB_GCA_016185435.1".to_string(), // This one is a good long-branch false positive
+        "RS_GCF_001307315.1".to_string(), // Within the correct genus
+       "GB_GCA_012329085.1".to_string(),
+       "GB_GCA_016219485.1".to_string(), // possible a true positive?
+       "GB_GCA_018693315.1".to_string(),
     ];
     // let replicates = 2;
     // let sample_size = 4.0; // if > 1 then this is the number of samples to use
 
-    let replicates = 1;
-    let sample_size = 4.0; // if > 1 then this is the number of samples to use
+    let replicates = 1000;
+    let sample_size = 20.0; // if > 1 then this is the number of samples to use
 
+    println!("Running with sample size: {}", sample_size);
+    println!("Running with replicates: {}", replicates);
 
-    let params = Params::new(10, sample_size, replicates, taxa_subset, LinearModelType::RepeatedMedian, LinearModelError::RMSE, LinearModelCorr::R2);
+    let params = Params::new(4, sample_size, replicates, taxa_subset, LinearModelType::RepeatedMedian, LinearModelError::RMSE, LinearModelCorr::R2);
 
     let _x = run_deltapd(&deltapd.qry_dm, &deltapd.ref_dm, &deltapd.metadata, &params).unwrap();
 
     // Don't forget to build before running!
     // Before any optimisations (no parallel processing), r50, s50 took: 145.07
     // With some minor optimisations in the loop, r50, s50 took: 114-120
+    // After the bitvec optimistions, r50, s50 took: 17.52
 
     println!("Done.");
 }

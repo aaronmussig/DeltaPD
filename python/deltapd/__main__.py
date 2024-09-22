@@ -86,14 +86,21 @@ def eg_basic():
     path_tax = None
     return path_ref, path_qry, path_meta, path_tax
 
+def test_case():
+    path_ref = Path('/private/tmp/dpd_test/ref_tree.tree')
+    path_qry = Path('/private/tmp/dpd_test/qry_tree.tree')
+    path_meta = Path('/private/tmp/dpd_test/metadata.tsv')
+    path_tax = None
+    return path_ref, path_qry, path_meta, path_tax
 
 @app.command()
 def run(name: str):
     # Load the example data
 
     # path_ref, path_qry, path_meta, path_tax = eg_basic()
-    path_ref, path_qry, path_meta, path_tax = eg_ar53_reps()
+    # path_ref, path_qry, path_meta, path_tax = eg_ar53_reps()
     # path_ref, path_qry, path_meta, path_tax = eg_ar53_all()
+    path_ref, path_qry, path_meta, path_tax = test_case()
 
     create_dm = True
 
@@ -128,7 +135,7 @@ def run(name: str):
 
     log('Running DeltaPD')  # there's an error where 0 can be all of the kNN distances # sample more??
     taxa = list()
-    params = PyParams(10, 100, 1000, taxa, PyLinearModelType.TheilSen, PyLinearModelError.RMSE, PyLinearModelCorr.Pearson)
+    params = PyParams(10, 30, 100, taxa, PyLinearModelType.TheilSen, PyLinearModelError.RMSE, PyLinearModelCorr.Pearson)
 
     log("getting results")
     results = dpd.run(params)

@@ -3,12 +3,18 @@ use std::collections::{HashMap, HashSet};
 use log::{error, warn};
 use phylodm::tree::Taxon;
 
-use crate::model::error::DeltaPDResult;
+use crate::model::error::{DeltaPDError, DeltaPDResult};
 use crate::model::metadata::MetadataFile;
 
 pub struct CommonTaxa<'a> {
     pub ref_taxa: HashSet<&'a Taxon>,
     pub qry_taxa: HashSet<&'a Taxon>,
+}
+
+impl CommonTaxa<'_> {
+    pub fn is_empty(&self) -> bool {
+        self.ref_taxa.is_empty() || self.qry_taxa.is_empty()
+    }
 }
 
 /// This method takes two vectors of taxa, and uses the mapping provided in the metadata
@@ -18,6 +24,15 @@ pub fn find_common_ids_in_pdms<'a>(
     q_taxa: &'a [Taxon],
     metadata_file: &MetadataFile,
 ) -> DeltaPDResult<CommonTaxa<'a>> {
+
+    // Variables that will be used throughout this function
+    let n_ref_taxa = r_taxa.len();
+    let n_qry_taxa = q_taxa.len();
+
+    // Check if either the reference or query taxa are empty
+    if r_taxa.is_empty() || q_taxa.is_empty() {
+        return Err(DeltaPDError::Error(format!("Both trees must contain at least one taxon. Number of reference taxa: {}, number of query taxa: {}.", n_ref_taxa, n_qry_taxa)));
+    }
 
     // Create a hashmap to get the pointer to the reference taxon
     let ref_taxa_map = {
@@ -52,6 +67,11 @@ pub fn find_common_ids_in_pdms<'a>(
                 qry_taxon.0
             );
         }
+    }
+
+    // Check if any common taxa were found
+    if out_ref.is_empty() || out_qry.is_empty() {
+        return Err(DeltaPDError::Error("No common taxa found between the reference and query trees.".to_string()));
     }
 
     // Return
