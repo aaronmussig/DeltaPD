@@ -16,9 +16,13 @@ pub fn calc_median(x: &[f64]) -> f64 {
     }
 }
 
+/// Calculate the median value of a sorted vector.
 pub fn calc_median_sorted(x: &[f64]) -> f64 {
     if x.is_empty() {
         panic!("Cannot calculate the median of an empty vector.");
+    }
+    if x.len() == 1 {
+        return x[0];
     }
 
     let n = x.len();
@@ -29,6 +33,14 @@ pub fn calc_median_sorted(x: &[f64]) -> f64 {
     } else {
         x[mid]
     }
+}
+
+#[test]
+fn test_calc_median_sorted() {
+    assert_eq!(calc_median_sorted(&[1.0]), 1.0);
+    assert_eq!(calc_median_sorted(&[1.0, 2.0]), 1.5);
+    assert_eq!(calc_median_sorted(&[1.0, 2.0, 3.0]), 2.0);
+    assert_eq!(calc_median_sorted(&[1.0, 2.0, 3.0, 4.0]), 2.5);
 }
 
 

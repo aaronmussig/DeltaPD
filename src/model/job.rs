@@ -1,5 +1,4 @@
 use crate::model::metadata::MetadataFile;
-use crate::model::params::Params;
 use crate::model::pdm::{QryDistMatrix, RefDistMatrix};
 use bitvec::bitvec;
 use bitvec::prelude::BitVec;
@@ -49,12 +48,10 @@ impl<'a> JobData<'a> {
         let mut qry_labels: Vec<(&Taxon, &Taxon)> = Vec::with_capacity(n_data_points);
         let mut ref_labels: Vec<(&Taxon, &Taxon)> = Vec::with_capacity(n_data_points);
         let mut label_bitmask: HashMap<&Taxon, BitVec> = HashMap::with_capacity(qry_taxa_sampled_unq.len());
-        let mut label_bitmask_test: HashMap<&Taxon, Vec<bool>> = HashMap::with_capacity(qry_taxa_sampled_unq.len());
 
         // Initialise the bitmask for each taxon
         for qry_taxon in qry_taxa_sampled_unq {
             label_bitmask.insert(qry_taxon, bitvec![0; n_data_points]);
-            label_bitmask_test.insert(qry_taxon, vec![false; n_data_points]);
         }
 
         // Iterate over each randomly sampled taxon index
@@ -87,22 +84,11 @@ impl<'a> JobData<'a> {
                 qry_labels.push((qry_taxon_i, qry_taxon_j));
                 ref_labels.push((ref_taxon_i, ref_taxon_j));
 
-                // TODO: ????
+                // Set the bitmask
                 label_bitmask.get_mut(qry_taxon_i).unwrap().set(cur_index, true);
                 label_bitmask.get_mut(qry_taxon_j).unwrap().set(cur_index, true);
-                label_bitmask_test.get_mut(qry_taxon_i).unwrap()[cur_index] = true;
-                label_bitmask_test.get_mut(qry_taxon_j).unwrap()[cur_index] = true;
 
                 cur_index += 1;
-            }
-
-        }
-
-        // Test that the label_bitmask and label_bitmask_test vecs are equal
-        for (&taxon, bitmask) in label_bitmask.iter() {
-            let test_bitmask = label_bitmask_test.get(taxon).unwrap();
-            for (i, &val) in test_bitmask.iter().enumerate() {
-                assert_eq!(val, bitmask[i]);
             }
         }
 

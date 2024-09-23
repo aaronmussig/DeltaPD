@@ -3,8 +3,8 @@ use std::io::{BufReader, Read};
 use std::path::PathBuf;
 
 use md5::{Digest, Md5};
-use pyo3::{pyfunction, PyResult};
 use pyo3::exceptions::PyValueError;
+use pyo3::{pyfunction, PyResult};
 
 use crate::model::error::{DeltaPDError, DeltaPDResult};
 

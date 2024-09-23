@@ -1,20 +1,19 @@
-use std::collections::HashMap;
-use std::fs::File;
-use std::path::Path;
-use std::str::FromStr;
-use std::fs;
-use std::io::{self, BufRead};
-use std::time::Instant;
+use crate::model::error::{DeltaPDError, DeltaPDResult};
 use csv::Writer;
 use ndarray::Array2;
-use phylodm::PDM;
 use phylodm::tree::{Edge, NodeId, Taxon};
-use pyo3::{Bound, pyclass, pymethods, PyResult};
+use phylodm::PDM;
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyType;
+use pyo3::{pyclass, pymethods, Bound, PyResult};
 use rand::distributions::{Distribution, Uniform};
 use rand::thread_rng;
-use crate::model::error::{DeltaPDError, DeltaPDResult};
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::{self, BufRead};
+use std::path::Path;
+use std::str::FromStr;
+use std::time::Instant;
 
 #[derive(Debug, Clone)]
 pub struct DistMatrix {
@@ -186,7 +185,6 @@ impl DistMatrix {
         println!("Time to create PDM: {:?}", previous_time.elapsed());
         Ok(Self::new(taxa, matrix))
     }
-
 }
 
 #[pyclass]

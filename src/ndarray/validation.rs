@@ -1,5 +1,5 @@
-use ndarray::Array2;
 use crate::model::error::{DeltaPDError, DeltaPDResult};
+use ndarray::Array2;
 
 pub fn contains_nan(x: &Array2<f64>) -> bool {
     for v in x.iter() {

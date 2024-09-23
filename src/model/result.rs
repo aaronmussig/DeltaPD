@@ -50,7 +50,7 @@ pub struct PyOutputResult {
 
 
 pub struct OutputResultSmall {
-    pub taxa: Vec<Taxon>,
+    pub taxon: Taxon,
     pub std_error: Vec<f64>,
 }
 
@@ -59,7 +59,7 @@ impl OutputResultSmall {
     pub fn to_python(&self) -> PyOutputResultSmall {
         PyOutputResultSmall {
             std_error: self.std_error.clone(),
-            taxa: self.taxa.iter().map(|x| x.0.clone()).collect(),
+            taxon: self.taxon.0.clone(),
         }
     }
 }
@@ -71,6 +71,6 @@ pub struct PyOutputResultSmall {
     pub std_error: Vec<f64>,
 
     #[pyo3(get, set)]
-    pub taxa: Vec<String>,
+    pub taxon: String,
 
 }

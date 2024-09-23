@@ -1,6 +1,6 @@
+use crate::model::error::{DeltaPDError, DeltaPDResult};
 use std::collections::HashMap;
 use std::path::Path;
-use crate::model::error::{DeltaPDError, DeltaPDResult};
 
 #[derive(Debug)]
 pub struct MetadataFileRow {
@@ -20,7 +20,6 @@ impl MetadataFileRow {
 pub struct MetadataFile {
     pub rows: HashMap<String, MetadataFileRow>,
 }
-
 
 
 impl MetadataFile {

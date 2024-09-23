@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use phylodm::tree::Taxon;
 use crate::model::pdm::DistMatrix;
+use phylodm::tree::Taxon;
+use std::collections::HashMap;
 
 pub fn find_equivalent_taxa(dist_matrix: &DistMatrix) -> HashMap<&Taxon, Vec<&Taxon>> {
 

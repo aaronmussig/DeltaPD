@@ -1,5 +1,7 @@
-use pyo3::{pyclass, pymethods};
 use crate::model::linalg::{LinearModelCorr, LinearModelError, LinearModelType, PyLinearModelCorr, PyLinearModelError, PyLinearModelType};
+use pyo3::{pyclass, pymethods};
+use std::cmp;
+use std::collections::HashSet;
 
 pub struct Params {
     // Parameters
@@ -7,7 +9,7 @@ pub struct Params {
 
     pub sample_size: f64,
     pub replicates: usize,
-    pub taxa:Vec<String>,
+    pub taxa: HashSet<String>,
 
     // Model parameters
     pub model: LinearModelType,
@@ -21,15 +23,15 @@ impl Params {
         cpus: usize,
         sample_size: f64,
         replicates: usize,
-        taxa: Vec<String>,
+        taxa: HashSet<String>,
         model: LinearModelType,
         model_error: LinearModelError,
         model_corr: LinearModelCorr,
     ) -> Self {
         Self {
-            cpus,
+            cpus: cmp::max(cpus, 1),
             sample_size,
-            replicates,
+            replicates: cmp::max(replicates, 1),
             taxa,
             model,
             model_error,
@@ -40,18 +42,16 @@ impl Params {
 
 #[pyclass]
 pub struct PyParams {
-    pub params: Params
+    pub params: Params,
 }
 
 #[pymethods]
 impl PyParams {
-
     #[new]
-    pub fn new(cpus: usize, sample_size: f64, replicates: usize, taxa: Vec<String>, model: PyLinearModelType, error: PyLinearModelError, corr: PyLinearModelCorr) -> Self {
+    pub fn new(cpus: usize, sample_size: f64, replicates: usize, taxa: HashSet<String>, model: PyLinearModelType, error: PyLinearModelError, corr: PyLinearModelCorr) -> Self {
         PyParams {
             params: Params::new(cpus, sample_size, replicates, taxa, model.to_enum(), error.to_enum(), corr.to_enum())
         }
     }
-
 }
 

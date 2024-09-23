@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
-use pyo3::prelude::*;
 use crate::method::deltapd::run_deltapd;
 use crate::model::metadata::MetadataFile;
 use crate::model::params::{Params, PyParams};
 use crate::model::pdm::{PyDistMatrix, QryDistMatrix, RefDistMatrix};
-use crate::model::result::{OutputResult, OutputResultSmall, PyOutputResult, PyOutputResultSmall};
+use crate::model::result::{OutputResultSmall, PyOutputResultSmall};
+use pyo3::prelude::*;
 
 pub struct DeltaPD {
     pub qry_dm: QryDistMatrix,
@@ -54,7 +54,6 @@ impl PyDeltaPD {
     }
 
     pub fn run(&self, params: &PyParams) -> PyResult<Vec<PyOutputResultSmall>> {
-
         let result = self.deltapd.run(&params.params);
 
         // let mut out = Vec::new();

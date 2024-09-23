@@ -1,10 +1,10 @@
-use pyo3::{Bound, pymodule, PyResult, wrap_pyfunction};
-use pyo3::prelude::{PyModule, PyModuleMethods};
 use crate::model::linalg::{PyLinearModelCorr, PyLinearModelError, PyLinearModelType};
 use crate::model::params::PyParams;
 use crate::model::pdm::PyDistMatrix;
 use crate::python::deltapd::PyDeltaPD;
 use crate::util::hash::file_md5_py;
+use pyo3::prelude::PyModule;
+use pyo3::{pymodule, wrap_pyfunction, Bound, PyResult};
 
 pub mod method;
 pub mod ndarray;
@@ -14,7 +14,6 @@ pub mod python;
 pub mod util;
 pub mod model;
 pub mod stats;
-
 
 
 /// A Python module implemented in Rust. The name of this function must match
