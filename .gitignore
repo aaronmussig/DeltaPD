@@ -11,3 +11,6 @@ tmp/
 *.so
 
 scripts/
+
+__pycache__/
+*.pyc
