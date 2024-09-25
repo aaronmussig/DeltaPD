@@ -15,6 +15,8 @@ fn main() {
     let qry_path = PathBuf::from("/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/non_bs.dm");
     let meta_path = PathBuf::from("/Users/aaron/phd/DeltaPD/examples/ar53_r220_ssu/ar53_non_bs_metadata.tsv");
 
+
+    let out_dir = PathBuf::from("/tmp/out");
     // let ref_path = PathBuf::from("/Users/aaron/phd/DeltaPDNew/example/reference.dm");
     // let qry_path = PathBuf::from("/Users/aaron/phd/DeltaPDNew/example/query.dm");
     // let meta_path = PathBuf::from("/Users/aaron/phd/DeltaPDNew/example/metadata.tsv");
@@ -58,7 +60,7 @@ fn main() {
     println!("Running with sample size: {}", sample_size);
     println!("Running with replicates: {}", replicates);
 
-    let params = Params::new(1, sample_size, replicates, taxa_subset, LinearModelType::RepeatedMedian, LinearModelError::RMSE, LinearModelCorr::R2);
+    let params = Params::new(1, sample_size, replicates, taxa_subset, LinearModelType::RepeatedMedian, LinearModelError::RMSE, LinearModelCorr::R2, true, out_dir);
 
     let _results = run_deltapd(&deltapd.qry_dm, &deltapd.ref_dm, &deltapd.metadata, &params).unwrap();
 

@@ -2,6 +2,7 @@ use crate::model::linalg::{LinearModelCorr, LinearModelError, LinearModelType, P
 use pyo3::{pyclass, pymethods};
 use std::cmp;
 use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 
 pub struct Params {
     // Parameters
@@ -15,6 +16,9 @@ pub struct Params {
     pub model: LinearModelType,
     pub model_error: LinearModelError,
     pub model_corr: LinearModelCorr,
+
+    pub debug: bool,
+    pub output_dir: PathBuf,
 }
 
 
@@ -27,6 +31,8 @@ impl Params {
         model: LinearModelType,
         model_error: LinearModelError,
         model_corr: LinearModelCorr,
+        debug: bool,
+        output_dir: PathBuf,
     ) -> Self {
         Self {
             cpus: cmp::max(cpus, 1),
@@ -36,6 +42,8 @@ impl Params {
             model,
             model_error,
             model_corr,
+            debug,
+            output_dir,
         }
     }
 }
@@ -48,9 +56,9 @@ pub struct PyParams {
 #[pymethods]
 impl PyParams {
     #[new]
-    pub fn new(cpus: usize, sample_size: f64, replicates: usize, taxa: HashSet<String>, model: PyLinearModelType, error: PyLinearModelError, corr: PyLinearModelCorr) -> Self {
+    pub fn new(cpus: usize, sample_size: f64, replicates: usize, taxa: HashSet<String>, model: PyLinearModelType, error: PyLinearModelError, corr: PyLinearModelCorr, debug: bool, output_dir: String) -> Self {
         PyParams {
-            params: Params::new(cpus, sample_size, replicates, taxa, model.to_enum(), error.to_enum(), corr.to_enum())
+            params: Params::new(cpus, sample_size, replicates, taxa, model.to_enum(), error.to_enum(), corr.to_enum(), debug, PathBuf::from(output_dir))
         }
     }
 }

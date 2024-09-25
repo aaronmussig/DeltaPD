@@ -4,7 +4,7 @@ from typing import Collection, Tuple
 import dendropy
 
 
-class Tree:
+class DeltaPdTree:
 
     def __init__(self, path: Path):
         self.path = path
@@ -14,7 +14,7 @@ class Tree:
     def read(path: Path) -> dendropy.Tree:
         return dendropy.Tree.get(path=path, schema='newick', preserve_underscores=True)
 
-    def get_nodes_and_edges_for_deltapd(self, save: bool = False):
+    def get_nodes_and_edges_for_deltapd(self):
         d_node_to_idx = dict()
         taxa = set()
         edges = set()
@@ -48,21 +48,16 @@ class Tree:
                 edges.add((parent_idx, cur_node_id, node.edge_length))
 
         taxa, edges = tuple(taxa), tuple(edges)
-
-        # Save the data to disk
-        if save:
-            self.to_file(taxa, edges)
-
         return taxa, edges
 
     def subset_to_taxa(self, taxa: Collection[str]):
         return self.tree.extract_tree_with_taxa_labels(taxa)
 
-    def to_file(self, taxa: Tuple[Tuple[str, int]], edges: Tuple[Tuple[int, int, float]]):
+    @staticmethod
+    def to_file(out_path: Path, taxa: Tuple[Tuple[str, int]], edges: Tuple[Tuple[int, int, float]]):
         """
         Write the nodes and edges to a file for later import in Rust.
         """
-        out_path = self.path.with_suffix('.dm')
         print(f'Saving distance matrix to: {out_path}')
         with out_path.open('w') as f:
             f.write('#TAXA\n')

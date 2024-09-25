@@ -40,9 +40,9 @@ pub struct PyDeltaPD {
 #[pymethods]
 impl PyDeltaPD {
     #[new]
-    pub fn new(qry_dm: PyDistMatrix, ref_dm: PyDistMatrix, metadata_path: &str, delimeter: &str) -> Self {
+    pub fn new(qry_dm: PyDistMatrix, ref_dm: PyDistMatrix, metadata_path: &str, delimiter: &str) -> Self {
         let metadata_path = PathBuf::from(metadata_path);
-        let delim = delimeter.as_bytes()[0];
+        let delim = delimiter.as_bytes()[0];
         let metadata_file = MetadataFile::read(&metadata_path, delim).expect("TODO");
         Self {
             deltapd: DeltaPD::new(
@@ -55,20 +55,10 @@ impl PyDeltaPD {
 
     pub fn run(&self, params: &PyParams) -> PyResult<Vec<PyOutputResultSmall>> {
         let result = self.deltapd.run(&params.params);
-
-        // let mut out = Vec::new();
-
-        /*
-        std_err vec<64>
-        taxon_remvoed str
-
-         */
-
         let mut output = Vec::with_capacity(result.len());
         for res in result {
             output.push(res.to_python());
         }
-
         Ok(output)
     }
 }

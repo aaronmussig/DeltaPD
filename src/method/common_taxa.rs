@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use log::{error, warn};
 use phylodm::tree::Taxon;
 
 use crate::model::error::{DeltaPDError, DeltaPDResult};
@@ -56,13 +55,13 @@ pub fn find_common_ids_in_pdms<'a>(
                 out_ref.insert(ref_taxon);
                 out_qry.insert(qry_taxon);
             } else {
-                error!(
+                println!(
                     "Reference taxon '{}' not found in the reference tree, skipping.",
                     ref_taxon_str
                 );
             }
         } else {
-            warn!(
+            println!(
                 "Query taxon '{}' has no reference taxon set in the metadata file, skipping.",
                 qry_taxon.0
             );

@@ -147,34 +147,13 @@ pub fn run_deltapd_on_taxon_test(cur_job: &Job, qry_mat: &QryDistMatrix, ref_mat
 
     let std_error = calc_prop_std_error_of_jackknife(&relative_influence);
 
-    // As I am lazy write the data to disk
-    let mut file = File::create(format!("/tmp/dpd/deltapd_xy_{}_{}.tsv", q_taxon.0, cur_job.replicate)).unwrap();
-    file.write_all(b"query_taxon_i\tqry_taxon_j\tref_taxon_i\tqry_taxon_j\tquery_dist\tref_dist\n").unwrap();
-    for i in 0..qry_data.len() {
-        let line = format!(
-            "{}\t{}\t{}\t{}\t{}\t{}\n",
-            job_data.qry_labels[i].0.0,
-            job_data.qry_labels[i].1.0,
-            job_data.ref_labels[i].0.0,
-            job_data.ref_labels[i].1.0,
-            qry_data[i],
-            ref_data[i]
-        );
-        file.write_all(line.as_bytes()).unwrap();
-    }
-
+    // Collect the results
     let mut output: Vec<DeltaPdOutput> = Vec::with_capacity(model_eval.len());
-
-    // Write out the relative influence values
-    let mut file = File::create(format!("/tmp/dpd/deltapd_relative_influence_{}_{}.tsv", q_taxon.0, cur_job.replicate)).unwrap();
-    file.write_all(b"taxon\trelative_influence\tstd_error\tgradient\tintercept\n").unwrap();
     for (i, (cur_taxon, cur_model)) in model_eval.iter().enumerate() {
         let cur_rinf = relative_influence[i];
         let cur_err = std_error[i];
         let cur_model_grad = cur_model.params.gradient;
         let cur_model_int = cur_model.params.intercept;
-        let line = format!("{}\t{}\t{}\t{}\t{}\n", cur_taxon.0, cur_rinf, cur_err, cur_model_grad, cur_model_int);
-        file.write_all(line.as_bytes()).unwrap();
 
         // Create the output object for those we are interested in
         if params.taxa.is_empty() {
@@ -202,6 +181,48 @@ pub fn run_deltapd_on_taxon_test(cur_job: &Job, qry_mat: &QryDistMatrix, ref_mat
         }
     }
 
+
+    // If we're in debug mode then output the X/Y coordinates from, this taxon to disk
+    if params.debug {
+        {
+            let mut file_path = params.output_dir.clone();
+            file_path.push(format!("xy_{}_{}.tsv", q_taxon.0, cur_job.replicate));
+
+            println!("{:?}", file_path);
+
+            let mut file = File::create(file_path).unwrap();
+            file.write_all(b"query_taxon_i\tqry_taxon_j\tref_taxon_i\tqry_taxon_j\tquery_dist\tref_dist\n").unwrap();
+            for i in 0..qry_data.len() {
+                let line = format!(
+                    "{}\t{}\t{}\t{}\t{}\t{}\n",
+                    job_data.qry_labels[i].0.0,
+                    job_data.qry_labels[i].1.0,
+                    job_data.ref_labels[i].0.0,
+                    job_data.ref_labels[i].1.0,
+                    qry_data[i],
+                    ref_data[i]
+                );
+                file.write_all(line.as_bytes()).unwrap();
+            }
+        }
+        {
+            let mut file_path = params.output_dir.clone();
+            file_path.push(format!("model_{}_{}.tsv", q_taxon.0, cur_job.replicate));
+
+            let mut file = File::create(file_path).unwrap();
+            file.write_all(b"taxon\trelative_influence\tstd_error\tgradient\tintercept\n").unwrap();
+            for (i, (cur_taxon, cur_model)) in model_eval.iter().enumerate() {
+                let cur_rinf = relative_influence[i];
+                let cur_err = std_error[i];
+                let cur_model_grad = cur_model.params.gradient;
+                let cur_model_int = cur_model.params.intercept;
+                let line = format!("{}\t{}\t{}\t{}\t{}\n", cur_taxon.0, cur_rinf, cur_err, cur_model_grad, cur_model_int);
+                file.write_all(line.as_bytes()).unwrap();
+            }
+        }
+    }
+
+    // Done, return the output
     Ok(output)
 }
 
@@ -228,53 +249,3 @@ pub fn transform_results_to_output(dpd_output: &[DeltaPdOutput], n_query_taxa: u
     Ok(out)
 }
 
-
-//
-// pub fn run_deltapd_on_taxon(cur_job: &Job, qry_mat: &QryDistMatrix, ref_mat: &RefDistMatrix, metadata_file: &MetadataFile, params: &Params) -> DeltaPDResult<OutputResultSmall> {
-//     let q_taxon = cur_job.taxon;
-//
-//     // Create the XY vectors containing the data points from the KNN set
-//     let knn_as_linalg = create_vecs_from_knn3(&qry_mat, &ref_mat, q_taxon, metadata_file, params)?;
-//
-//     // // Fit a model without any jackknifing
-//     // let linear_model_base = LinearModel::fit(
-//     //     params.model,
-//     //     params.model_error,
-//     //     params.model_corr,
-//     //     &knn_as_linalg.ref_data,
-//     //     &knn_as_linalg.qry_data,
-//     // );
-//
-//     // Perform jacknifing on the data
-//     let jackknife_models = jackknife_fn(
-//         &knn_as_linalg.ref_data,
-//         &knn_as_linalg.qry_data,
-//         params.model,
-//         params.model_error,
-//         params.model_corr,
-//     )?;
-//
-//     // Calculate the relative influence function
-//     let relative_influence = calc_relative_jackknife_influence(
-//         &jackknife_models
-//             .iter()
-//             .map(|x| x.eval.error)
-//             .collect::<Vec<f64>>(),
-//     );
-//
-//     let std_error = calc_prop_std_error_of_jackknife(&relative_influence);
-//
-//     Ok(OutputResultSmall {
-//         taxa: knn_as_linalg.qry_labels,
-//         std_error,
-//     })
-//     // Ok(OutputResult {
-//     //     linear_model_base,
-//     //     linear_model_jk: jackknife_models,
-//     //     relative_influence,
-//     //     std_error,
-//     //     query_taxon: q_taxon.clone(),
-//     //     knn_as_linalg,
-//     // })
-//
-// }

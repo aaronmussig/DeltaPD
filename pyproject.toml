@@ -8,9 +8,8 @@ requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = [ "typer", "dendropy",  "numpy", "matplotlib", "ete3"]
+dependencies = [ "typer", "dendropy",  "numpy", "matplotlib"]
 
 [tool.maturin]
 python-source = "python"

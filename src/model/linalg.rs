@@ -9,6 +9,9 @@ use bitvec::vec::BitVec;
 use clap::ValueEnum;
 use pyo3::pyclass;
 
+
+use bitvec::prelude::Lsb0; //not un-used!
+
 #[derive(Copy, Clone, Debug, ValueEnum)]
 pub enum LinearModelType {
     /// Repeated median

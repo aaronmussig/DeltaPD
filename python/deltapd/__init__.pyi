@@ -1,13 +1,13 @@
 from enum import Enum
-from typing import List
+from typing import Set
 
 
 class PyDeltaPD:
 
-    def __init__(self, qry_dm: PyDistMatrix, ref_dm: PyDistMatrix):
+    def __init__(self, qry_dm: PyDistMatrix, ref_dm: PyDistMatrix, metadata_path: str, delimiter: str):
         pass
 
-    def run(self):
+    def run(self, params: PyParams):
         pass
 
 
@@ -25,10 +25,12 @@ class PyLinearModelType(Enum):
     RepeatedMedian = 0
     TheilSen = 1
 
+
 class PyLinearModelError(Enum):
     MSE = 0
     NormMSE = 1
     RMSE = 2
+
 
 class PyLinearModelCorr(Enum):
     R2 = 0
@@ -36,7 +38,6 @@ class PyLinearModelCorr(Enum):
 
 
 class PyParams:
-    def __init__(self, cpus: int, sample_size: float, replicates: int, taxa: List[str], model: PyLinearModelType, error: PyLinearModelError, corr: PyLinearModelCorr):
+    def __init__(self, cpus: int, sample_size: float, replicates: int, taxa: Set[str], model: PyLinearModelType,
+                 error: PyLinearModelError, corr: PyLinearModelCorr, debug: bool, output_dir: str):
         pass
-
-
