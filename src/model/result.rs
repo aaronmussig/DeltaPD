@@ -51,14 +51,18 @@ pub struct PyOutputResult {
 
 pub struct OutputResultSmall {
     pub taxon: Taxon,
-    pub std_error: Vec<f64>,
+    pub error_mean: f64,
+    pub error_median: f64,
+    pub error_std: f64,
 }
 
 
 impl OutputResultSmall {
     pub fn to_python(&self) -> PyOutputResultSmall {
         PyOutputResultSmall {
-            std_error: self.std_error.clone(),
+            error_mean: self.error_mean,
+            error_median: self.error_median,
+            error_std: self.error_std,
             taxon: self.taxon.0.clone(),
         }
     }
@@ -67,8 +71,15 @@ impl OutputResultSmall {
 
 #[pyclass]
 pub struct PyOutputResultSmall {
+
     #[pyo3(get, set)]
-    pub std_error: Vec<f64>,
+    pub error_mean: f64,
+
+    #[pyo3(get, set)]
+    pub error_median: f64,
+
+    #[pyo3(get, set)]
+    pub error_std: f64,
 
     #[pyo3(get, set)]
     pub taxon: String,

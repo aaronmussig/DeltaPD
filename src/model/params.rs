@@ -2,7 +2,7 @@ use crate::model::linalg::{LinearModelCorr, LinearModelError, LinearModelType, P
 use pyo3::{pyclass, pymethods};
 use std::cmp;
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub struct Params {
     // Parameters

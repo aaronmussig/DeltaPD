@@ -2,12 +2,19 @@ from enum import Enum
 from typing import Set
 
 
+class PyOutputResultSmall:
+    error_mean: float
+    error_median: float
+    error_std: float
+    taxon: str
+
+
 class PyDeltaPD:
 
     def __init__(self, qry_dm: PyDistMatrix, ref_dm: PyDistMatrix, metadata_path: str, delimiter: str):
         pass
 
-    def run(self, params: PyParams):
+    def run(self, params: PyParams) -> list[PyOutputResultSmall]:
         pass
 
 

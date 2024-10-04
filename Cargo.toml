@@ -30,7 +30,7 @@ criterion = "0.5.1"
 
 [lib]
 name = "rs_deltapd"
-crate-type = ["cdylib", "rlib"] # todo: remove rlib once done
+crate-type = ["cdylib"]
 
 [profile.release]
 opt-level = 3

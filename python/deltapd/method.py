@@ -3,6 +3,8 @@ from pathlib import Path
 from deltapd import PyDistMatrix, PyDeltaPD, PyLinearModelType, PyParams
 from deltapd.model.params import CorrelationFn, ErrorFn
 from deltapd.tree import DeltaPdTree
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def run_deltapd(
@@ -56,15 +58,23 @@ def run_deltapd(
 
     # Run the analysis
     results = dpd.run(dpd_params)
-    #
-    # # Write the data to disk
-    # path_out = output_dir / 'results.tsv'
-    # with path_out.open('w') as f:
-    #     f.write(f'taxon\t')
-    #     for result in results:
-    #         f.write(f'')
-    #
-    print('Done with the analysis. Writing the results to disk.')
-    print(len(results))
-    print('TODO!')
+
+    print('Getting the terminal branch lengths.')
+    d_taxon_to_term_branch = qry_tree.get_terminal_branch_lengths(only_taxa)
+
+    result_path = output_dir / 'results.tsv'
+    with result_path.open('w') as f:
+        header = ('taxon', 'mean_error', 'median_error', 'std_error', 'terminal_branch_length')
+        f.write('\t'.join(header) + '\n')
+        for result in sorted(results, key=lambda x: -x.error_median):
+            error_mean = round(result.error_mean * 100, 4)
+            error_std = round(result.error_std * 100, 4)
+            error_median = round(result.error_median * 100, 4)
+            cur_term_branch = d_taxon_to_term_branch[result.taxon]
+
+            col_values = (result.taxon, error_mean, error_median, error_std, cur_term_branch)
+            f.write('\t'.join(map(str, col_values)) + '\n')
+
+    print(f'Results are here: {result_path}')
+
     return

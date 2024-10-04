@@ -67,3 +67,20 @@ class DeltaPdTree:
             for parent, child, length in edges:
                 f.write(f'{parent}\t{child}\t{length}\n')
         return
+
+    def get_terminal_branch_lengths(self, only_taxa: set[str]) -> dict[str, float]:
+        """
+        Get the lengths of the terminal branches for the given taxa.
+        """
+        out = dict()
+
+        if only_taxa:
+            filter_fn = lambda x: x.taxon.label is not None and x.taxon.label in only_taxa
+        else:
+            filter_fn = lambda x: x.taxon.label is not None
+
+        for leaf_node in self.tree.leaf_node_iter(filter_fn=filter_fn):
+            out[leaf_node.taxon.label] = leaf_node.edge_length
+        return out
+
+

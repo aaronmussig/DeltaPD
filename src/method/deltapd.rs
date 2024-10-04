@@ -15,6 +15,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::prelude::*;
 use std::time::Instant;
+use crate::stats::vec::{calc_mean, calc_median, calc_stddev};
 
 /// The main method that runs DeltaPD
 pub fn run_deltapd(qry_mat: &QryDistMatrix, ref_mat: &RefDistMatrix, metadata_file: &MetadataFile, params: &Params) -> DeltaPDResult<Vec<OutputResultSmall>> {
@@ -27,6 +28,7 @@ pub fn run_deltapd(qry_mat: &QryDistMatrix, ref_mat: &RefDistMatrix, metadata_fi
 
     // 3. Generate a queue of jobs to be processed
     let jobs = create_jobs(&qry_taxa_to_process, params)?;
+    println!("Created {} jobs.", jobs.len());
 
     // 4. Process each job
     let previous_time = Instant::now();
@@ -46,7 +48,7 @@ pub fn run_deltapd(qry_mat: &QryDistMatrix, ref_mat: &RefDistMatrix, metadata_fi
     // 5. Transform the results into the expected output format
     let results = transform_results_to_output(&dpd_output, qry_taxa_to_process.len())?;
 
-    // 6. Return the results
+    // 7. Return the results
     Ok(results)
 }
 
@@ -188,8 +190,6 @@ pub fn run_deltapd_on_taxon_test(cur_job: &Job, qry_mat: &QryDistMatrix, ref_mat
             let mut file_path = params.output_dir.clone();
             file_path.push(format!("xy_{}_{}.tsv", q_taxon.0, cur_job.replicate));
 
-            println!("{:?}", file_path);
-
             let mut file = File::create(file_path).unwrap();
             file.write_all(b"query_taxon_i\tqry_taxon_j\tref_taxon_i\tqry_taxon_j\tquery_dist\tref_dist\n").unwrap();
             for i in 0..qry_data.len() {
@@ -240,9 +240,12 @@ pub fn transform_results_to_output(dpd_output: &[DeltaPdOutput], n_query_taxa: u
 
     // Transform the results into the expected output format
     for (cur_taxon, cur_data) in taxon_to_data {
+
         out.push(OutputResultSmall {
             taxon: cur_taxon.clone(),
-            std_error: cur_data,
+            error_mean: calc_mean(&cur_data),
+            error_median: calc_median(&cur_data),
+            error_std: calc_stddev(&cur_data),
         });
     }
 

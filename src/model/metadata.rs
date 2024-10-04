@@ -88,4 +88,10 @@ impl MetadataFile {
     pub fn get_ref_taxon(&self, qry_taxon: &str) -> Option<&str> {
         self.rows.get(qry_taxon).map(|row| row.genome_id.as_ref())
     }
+
+    pub fn get_contig_len(&self, qry_taxon: &str) -> DeltaPDResult<usize> {
+        self.rows.get(qry_taxon).map(|row| row.contig_length).ok_or_else(|| {
+            DeltaPDError::Error(format!("No contig length found for taxon: {}", qry_taxon))
+        })
+    }
 }
