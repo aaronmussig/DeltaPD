@@ -19,6 +19,7 @@ impl MetadataFileRow {
 
 pub struct MetadataFile {
     pub rows: HashMap<String, MetadataFileRow>,
+    pub ref_to_qry: HashMap<String, Vec<String>>,
 }
 
 
@@ -26,6 +27,7 @@ impl MetadataFile {
     pub fn read(path: &Path, delimiter: u8) -> DeltaPDResult<Self> {
         // Create the output rows
         let mut rows: HashMap<String, MetadataFileRow> = HashMap::new();
+        let mut ref_to_qry: HashMap<String, Vec<String>> = HashMap::new();
 
         // Create the reader
         let reader = csv::ReaderBuilder::new()
@@ -76,17 +78,23 @@ impl MetadataFile {
             }
 
             // Store the row
-            rows.insert(sequence_id, MetadataFileRow::new(genome_id, contig_length));
+            rows.insert(sequence_id.clone(), MetadataFileRow::new(genome_id.clone(), contig_length));
+            ref_to_qry.entry(genome_id).or_insert_with(Vec::new).push(sequence_id);
         }
 
         // Finally, return the metadata file
         Ok(MetadataFile {
             rows,
+            ref_to_qry
         })
     }
 
     pub fn get_ref_taxon(&self, qry_taxon: &str) -> Option<&str> {
         self.rows.get(qry_taxon).map(|row| row.genome_id.as_ref())
+    }
+
+    pub fn get_qry_taxa(&self, ref_taxon: &str) -> Option<&Vec<String>> {
+        self.ref_to_qry.get(ref_taxon)
     }
 
     pub fn get_contig_len(&self, qry_taxon: &str) -> DeltaPDResult<usize> {

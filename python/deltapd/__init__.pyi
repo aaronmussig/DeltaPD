@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Set
 
+from deltapd.model.params import Direction
+
 
 class PyOutputResultSmall:
     error_mean: float
@@ -45,6 +47,6 @@ class PyLinearModelCorr(Enum):
 
 
 class PyParams:
-    def __init__(self, cpus: int, sample_size: float, replicates: int, taxa: Set[str], model: PyLinearModelType,
+    def __init__(self, cpus: int, direction: Direction, sample_size: float, knn: int, replicates: int, taxa: Set[str], model: PyLinearModelType,
                  error: PyLinearModelError, corr: PyLinearModelCorr, debug: bool, output_dir: str):
         pass

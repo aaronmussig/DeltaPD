@@ -1,9 +1,11 @@
+use std::cell::Ref;
 use std::cmp;
+use std::cmp::PartialEq;
 use std::collections::{HashMap, HashSet};
 
 use crate::model::error::DeltaPDResult;
 use crate::model::metadata::MetadataFile;
-use crate::model::pdm::{QryDistMatrix, RefDistMatrix};
+use crate::model::pdm::{DistMatrix, QryDistMatrix, RefDistMatrix};
 use crate::ndarray::sort::get_nn_from_distance_matrix;
 use log::warn;
 use ndarray::Array2;
@@ -11,8 +13,9 @@ use phylodm::tree::Taxon;
 use pyo3::pyclass;
 use rand::distributions::{Distribution, Uniform};
 
-use crate::model::params::Params;
+use crate::model::params::{Params, ParamsDirection};
 use rand::{thread_rng, Rng};
+use crate::method::common_taxa::CommonTaxa;
 
 /// Get the nearest neighbours of all leaf nodes by patristic distance in a PDM.
 // pub fn get_pdm_k_bootstrap_from_matrix(
@@ -82,7 +85,6 @@ use rand::{thread_rng, Rng};
 //     }
 //     Ok(out)
 // }
-
 
 /// Get the nearest neighbours of all leaf nodes by patristic distance in a PDM.
 pub fn get_pdm_k_nearest_neighbours_from_matrix(

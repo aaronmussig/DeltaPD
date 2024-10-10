@@ -15,6 +15,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::prelude::*;
 use std::time::Instant;
+
 use crate::stats::vec::{calc_mean, calc_median, calc_stddev};
 
 /// The main method that runs DeltaPD
@@ -106,7 +107,7 @@ pub fn run_deltapd_on_taxon_test(cur_job: &Job, qry_mat: &QryDistMatrix, ref_mat
     let q_taxon = cur_job.taxon;
 
     // Get the X/Y data for the current job based on subsampling
-    let job_data = JobData::new(cur_job, qry_mat, ref_mat, metadata_file, params.sample_size);
+    let job_data = JobData::new(cur_job, qry_mat, ref_mat, metadata_file, params);
     let ref_data = job_data.ref_data.as_slice();
     let qry_data = job_data.qry_data.as_slice();
 
@@ -146,6 +147,7 @@ pub fn run_deltapd_on_taxon_test(cur_job: &Job, qry_mat: &QryDistMatrix, ref_mat
             .map(|x| x.1.eval.error)
             .collect::<Vec<f64>>(),
     );
+
 
     let std_error = calc_prop_std_error_of_jackknife(&relative_influence);
 
@@ -210,13 +212,15 @@ pub fn run_deltapd_on_taxon_test(cur_job: &Job, qry_mat: &QryDistMatrix, ref_mat
             file_path.push(format!("model_{}_{}.tsv", q_taxon.0, cur_job.replicate));
 
             let mut file = File::create(file_path).unwrap();
-            file.write_all(b"taxon\trelative_influence\tstd_error\tgradient\tintercept\n").unwrap();
+            file.write_all(b"taxon\trelative_influence\tstd_error\tgradient\tintercept\terr\tcorr\n").unwrap();
             for (i, (cur_taxon, cur_model)) in model_eval.iter().enumerate() {
                 let cur_rinf = relative_influence[i];
                 let cur_err = std_error[i];
                 let cur_model_grad = cur_model.params.gradient;
                 let cur_model_int = cur_model.params.intercept;
-                let line = format!("{}\t{}\t{}\t{}\t{}\n", cur_taxon.0, cur_rinf, cur_err, cur_model_grad, cur_model_int);
+                let cur_error = cur_model.eval.error;
+                let cur_corr = cur_model.eval.corr;
+                let line = format!("{}\t{}\t{}\t{}\t{}\t{}\t{}\n", cur_taxon.0, cur_rinf, cur_err, cur_model_grad, cur_model_int, cur_error, cur_corr);
                 file.write_all(line.as_bytes()).unwrap();
             }
         }

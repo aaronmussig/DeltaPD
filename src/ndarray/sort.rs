@@ -16,7 +16,7 @@ where
 }
 
 /// Returns the indices that would sort the array.
-pub fn argsort_by_vec(arr: &Vec<f64>) -> Vec<usize> {
+pub fn argsort_by_vec(arr: &[f64]) -> Vec<usize> {
     let mut indices: Vec<usize> = (0..arr.len()).collect();
     indices.sort_unstable_by(|&i, &j| arr[i].partial_cmp(&arr[j]).expect("Elements must not be NaN."));
     indices

@@ -14,6 +14,7 @@ use std::io::{self, BufRead};
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Instant;
+use crate::ndarray::sort::argsort_by_vec;
 
 #[derive(Debug, Clone)]
 pub struct DistMatrix {
@@ -34,6 +35,13 @@ impl DistMatrix {
         }
 
         DistMatrix { taxa, taxon_to_idx, taxon_str_to_idx, matrix }
+    }
+
+    pub fn argsort_taxon(&self, taxon: &Taxon) -> Vec<&Taxon> {
+        let taxon_idx = *self.taxon_to_idx.get(taxon).unwrap();
+        let matrix_row = self.matrix.row(taxon_idx);
+        let arg_sorted = argsort_by_vec(matrix_row.as_slice().unwrap());
+        arg_sorted.iter().map(|&idx| &self.taxa[idx]).collect()
     }
 
     /// Samples sample_size number of taxa from the matrix with replacement. Always includes taxon.

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from deltapd import PyDistMatrix, PyDeltaPD, PyLinearModelType, PyParams
-from deltapd.model.params import CorrelationFn, ErrorFn
+from deltapd.model.params import CorrelationFn, ErrorFn, Direction
 from deltapd.tree import DeltaPdTree
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,8 +13,8 @@ def run_deltapd(
         meta_path: Path,
         output_dir: Path,
         cpus: int,
-        sample_size: float,
-        replicates: int,
+        knn: int,
+        direction: Direction,
         correlation_fn: CorrelationFn,
         error_fn: ErrorFn,
         only_taxa: set[str],
@@ -46,8 +46,10 @@ def run_deltapd(
     # Create the parameter object
     dpd_params = PyParams(
         cpus=cpus,
-        sample_size=sample_size,
-        replicates=replicates,
+        sample_size=1,
+        replicates=1,
+        knn=knn,
+        direction=direction.to_rs(),
         taxa=only_taxa if only_taxa else set(),
         model=PyLinearModelType.RepeatedMedian,
         error=error_fn.to_rs(),
@@ -76,5 +78,9 @@ def run_deltapd(
             f.write('\t'.join(map(str, col_values)) + '\n')
 
     print(f'Results are here: {result_path}')
+
+
+    # If we're debugging then also plot the x/y data
+
 
     return
