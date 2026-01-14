@@ -376,7 +376,7 @@ impl<'a> LinearModelNew<'a> {
 
     /// Fit the model and return the error and correlation
     /// Optionally exclude datapoints indicated by the presence_bv.
-    pub fn fit(&self, presence_bv: Option<&BitVec>, params: LinearModelParams, model_error: LinearModelError, model_corr: LinearModelCorr) -> LinearModelEval {
+    pub fn fit(&self, presence_bv: Option<&BitVec>, params: &LinearModelParams, model_error: LinearModelError, model_corr: LinearModelCorr) -> LinearModelEval {
         let error_fn = model_error.get_fn();
         let corr_fn = model_corr.get_fn();
 

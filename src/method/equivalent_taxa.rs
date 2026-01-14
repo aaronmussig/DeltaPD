@@ -24,7 +24,7 @@ pub fn find_equivalent_taxa(dist_matrix: &DistMatrix) -> HashMap<&Taxon, Vec<&Ta
         for eq_taxon in equivalent_taxa {
 
             // Ignore self hits
-            if taxon == taxon {
+            if taxon == eq_taxon {
                 continue;
             }
 

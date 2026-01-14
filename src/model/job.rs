@@ -86,11 +86,13 @@ impl<'a> JobData<'a> {
                 // TODO: query taxa that belong to the same reference taxon
                 // TODO: Providing that the query taxa are sufficiently close
 
+                // TODO: Take the nearest query taxa that belong to the reference taxa?
+
                 let nearest_taxa = ref_mat.dm.argsort_taxon(taxon_ref_obj);
 
                 // Get the k-nearest neighbours to the reference taxon
                 let mut target_query_taxa: Vec<&Taxon> = Vec::with_capacity(params.knn);
-                let mut n_ref_taxa_added = 0usize;
+                let mut n_ref_taxa_added = 0;
 
                 for nearest_taxon in nearest_taxa {
                     let ref_qry_taxa = metadata_file.get_qry_taxa(&nearest_taxon.0);

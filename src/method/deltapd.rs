@@ -132,7 +132,7 @@ pub fn run_deltapd_on_taxon_test(cur_job: &Job, qry_mat: &QryDistMatrix, ref_mat
     for (cur_taxon, cur_taxon_bv) in job_data.label_bitmask {
         let cur_bitvec = Some(&cur_taxon_bv);
         let cur_model_params = linmodel.compute(cur_bitvec);
-        let cur_model_eval = linmodel.fit(cur_bitvec, cur_model_params.clone(), params.model_error, params.model_corr);
+        let cur_model_eval = linmodel.fit(cur_bitvec, &cur_model_params, params.model_error, params.model_corr);
         let model_output = LinearModel {
             params: cur_model_params,
             eval: cur_model_eval,
